@@ -1,0 +1,13 @@
+package com.dnikitin.transit;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class TransitRoutingBackendApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(TransitRoutingBackendApplication.class, args);
+    }
+
+}
