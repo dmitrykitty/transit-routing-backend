@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "table")
 @Data
@@ -25,4 +28,13 @@ public class RouteEntity {
     @JoinColumn(name = "provider_id",  nullable = false)
     private ProviderEntity provider;
 
+    @Builder.Default
+    @OneToMany(mappedBy = "route", cascade = CascadeType.ALL)
+    @OrderBy("stopSequence ASC")
+    private List<RouteStopEntity> stops = new ArrayList<>();
+
+    public void addRouteStop(RouteStopEntity stop) {
+        stops.add(stop);
+        stop.setRoute(this);
+    }
 }
