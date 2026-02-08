@@ -1,4 +1,4 @@
-package com.dnikitin.transit.api.v1;
+package com.dnikitin.transit.api.rest;
 
 
 import org.springframework.http.HttpStatus;
