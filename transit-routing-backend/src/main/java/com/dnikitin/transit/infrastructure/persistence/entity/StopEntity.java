@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.persistence.entity;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
 import jakarta.persistence.*;
@@ -20,7 +21,7 @@ public class StopEntity {
     @Column(nullable = false)
     String name;
 
-    @JdbcType(SqlTypes.GEOMETRY)
+    @JdbcTypeCode(SqlTypes.GEOMETRY)
     //geo type with longitude and latitude (SRID 4326)
     @Column(nullable = false, columnDefinition = "geometry(Point, 4326")
     private Point location;

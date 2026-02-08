@@ -1,4 +1,4 @@
 package com.dnikitin.transit.domain.model;
 
-public class Route {
+public record Route {
 }
