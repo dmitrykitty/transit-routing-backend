@@ -4,6 +4,6 @@ import com.dnikitin.transit.domain.model.Stop;
 
 import java.util.List;
 
-public interface StopSearchPort {
+public interface StopQueryPort {
     List<Stop> getStops();
 }

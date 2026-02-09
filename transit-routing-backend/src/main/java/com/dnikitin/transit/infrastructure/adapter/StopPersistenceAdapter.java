@@ -1,6 +1,6 @@
 package com.dnikitin.transit.infrastructure.adapter;
 
-import com.dnikitin.transit.application.port.out.StopSearchPort;
+import com.dnikitin.transit.application.port.out.StopQueryPort;
 import com.dnikitin.transit.domain.model.Stop;
 import com.dnikitin.transit.infrastructure.persistence.mapper.StopEntityMapper;
 import com.dnikitin.transit.infrastructure.repository.StopJpaRepository;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
-public class StopPersistenceAdapter implements StopSearchPort {
+public class StopPersistenceAdapter implements StopQueryPort {
 
     private final StopJpaRepository repository;
     private final StopEntityMapper mapper;
