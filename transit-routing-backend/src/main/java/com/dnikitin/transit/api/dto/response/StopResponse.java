@@ -1,4 +1,9 @@
 package com.dnikitin.transit.api.dto.response;
 
-public class StopResponse {
+public record StopResponse(
+        Long id,
+        String name,
+        double lat,
+        double lon
+) {
 }

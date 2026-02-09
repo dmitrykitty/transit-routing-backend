@@ -17,7 +17,7 @@ spring:
       ddl-auto: update #create tables, update, do not delete
     properties:
       hibernate:
-        dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
+        #dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
         format_sql: true
         jdbc:
           time_zone: UTC

@@ -23,6 +23,6 @@ public class StopEntity {
 
     @JdbcTypeCode(SqlTypes.GEOMETRY)
     //geo type with longitude and latitude (SRID 4326)
-    @Column(nullable = false, columnDefinition = "geometry(Point, 4326")
+    @Column(nullable = false, columnDefinition = "geometry(Point, 4326)")
     private Point location;
 }
