@@ -10,7 +10,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "route")
+@Table(
+        name = "route",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uq_route_city_number_type",
+                        columnNames = {"city", "route_number", "vehicle_type"}
+                )
+        },
+        indexes = {
+                @Index(name = "idx_route_lookup", columnList = "city, route_number")
+        }
+)
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -21,12 +33,15 @@ public class RouteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "route_number", nullable = false)
+    private String routeNumber;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "provider_id",  nullable = false)
-    private ProviderEntity provider;
+    @Column(nullable = false)
+    private String city;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vehicle_type", nullable = false)
+    private VehicleType vehicleType;
 
     @Builder.Default
     @OneToMany(mappedBy = "route", cascade = CascadeType.ALL)

@@ -5,7 +5,7 @@ spring:
   application:
     name: global-transit
 
-#datbase to connect
+  #datbase to connect
   datasource:
     url: jdbc:postgresql://localhost:5434/transit
     username: transit
@@ -21,6 +21,7 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+          batch_size: 100
     show-sql: true
 
   data:
