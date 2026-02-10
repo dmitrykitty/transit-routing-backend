@@ -16,12 +16,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+
 @Entity
 @Table(
         name = "route_stop",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_route_stop_route_sequence", columnNames = {"route_id", "stop_sequence"}),
-                @UniqueConstraint(name = "uq_route_stop", columnNames = {"route_id", "stop_id"})
+                // Kluczowe: trasa i sekwencja muszą być unikalne
+                @UniqueConstraint(name = "uq_route_stop_route_sequence", columnNames = {"route_id", "stop_sequence"})
         },
         indexes = {
                 @Index(name = "idx_route_stop_route", columnList = "route_id"),
@@ -48,4 +49,20 @@ public class RouteStopEntity {
 
     @Column(name = "stop_sequence", nullable = false)
     private Integer stopSequence;
+
+    // --- GTFS ---
+
+    @Column(name = "pickup_type")
+    @Builder.Default
+    private Integer pickupType = 0; // 0=regular, 1=no pickup
+
+    @Column(name = "drop_off_type")
+    @Builder.Default
+    private Integer dropOffType = 0; // 0=regular, 1=no drop-off
+
+    @Column(name = "timepoint")
+    private Integer timepoint; // 1=exact, 0=approximate
+
+    @Column(name = "shape_dist_traveled")
+    private Double shapeDistTraveled; // dystans od początku trasy w metrach
 }
