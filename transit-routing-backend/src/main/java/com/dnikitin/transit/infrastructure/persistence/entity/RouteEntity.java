@@ -46,24 +46,24 @@ public class RouteEntity {
     @Column(name = "name")
     private String name; // GTFS: route_long_name (e.g., "Krowodrza Górka - Kurdwanów P+R")
 
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description; // GTFS: route_desc
+//    @Column(name = "description", columnDefinition = "TEXT")
+//    private String description; // GTFS: route_desc
 
     @Column(nullable = false)
     private String city; // Custom field for city-based logic
 
     @Enumerated(EnumType.STRING)
     @Column(name = "vehicle_type", nullable = false)
-    private VehicleType vehicleType; // GTFS: route_type (mapped to Enum)
+    private VehicleType vehicleType;
 
-    @Column(name = "route_url")
-    private String url; // GTFS: route_url
+//    @Column(name = "route_url")
+//    private String url; // GTFS: route_url
 
-    @Column(name = "route_color")
-    private String color; // GTFS: route_color (hex without #)
+//    @Column(name = "route_color")
+//    private String color; // GTFS: route_color (hex without #)
 
-    @Column(name = "route_text_color")
-    private String textColor; // GTFS: route_text_color (hex without #)
+//    @Column(name = "route_text_color")
+//    private String textColor; // GTFS: route_text_color (hex without #)
 
     @Builder.Default
     @OneToMany(mappedBy = "route", cascade = CascadeType.ALL)
