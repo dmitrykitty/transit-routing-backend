@@ -40,8 +40,8 @@ public class TripEntity {
     @Column(name = "trip_headsign")
     private String headsign; // GTFS: trip_headsign (Direction shown on vehicle)
 
-    @Column(name = "trip_short_name")
-    private String shortName; // GTFS: trip_short_name
+//    @Column(name = "trip_short_name")
+//    private String shortName; // GTFS: trip_short_name
 
     @Column(name = "direction_id")
     private Integer directionId; // GTFS: direction_id (0=outbound, 1=inbound)
