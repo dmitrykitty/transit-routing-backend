@@ -10,10 +10,14 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "trip",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_trip_city_external_id", columnNames = {"city", "trip_id_ext"})
+        },
         indexes = {
                 @Index(name = "idx_trip_route", columnList = "route_id"),
                 @Index(name = "idx_trip_calendar", columnList = "calendar_id"),
-                @Index(name = "idx_trip_external_id", columnList = "trip_id_ext")
+                @Index(name = "idx_trip_city_external", columnList = "city, trip_id_ext"),
+                @Index(name = "idx_trip_city_route", columnList = "city, route_id")
         }
 )
 @Builder
@@ -24,10 +28,13 @@ public class TripEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // Internal database primary key
+    private Long id;
 
-    @Column(name = "trip_id_ext", unique = true, nullable = false)
-    private String tripIdExternal; // GTFS: trip_id (unique identifier from provider)
+    @Column(name = "trip_id_ext", nullable = false)
+    private String tripIdExternal;
+
+    @Column(nullable = false)
+    private String city;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "route_id", nullable = false)

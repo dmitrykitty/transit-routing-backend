@@ -20,7 +20,8 @@ import java.util.List;
         },
         indexes = {
                 @Index(name = "idx_route_lookup", columnList = "city, route_number"),
-                @Index(name = "idx_route_external_id", columnList = "route_id_ext")
+                @Index(name = "idx_route_city_external", columnList = "city, route_id_ext"),
+                @Index(name = "idx_route_city_vehicle", columnList = "city, vehicle_type")
         }
 )
 @Data

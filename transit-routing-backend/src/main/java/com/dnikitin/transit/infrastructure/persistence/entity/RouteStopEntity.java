@@ -21,12 +21,15 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "route_stop",
         uniqueConstraints = {
-                // Kluczowe: trasa i sekwencja muszą być unikalne
-                @UniqueConstraint(name = "uq_route_stop_route_sequence", columnNames = {"route_id", "stop_sequence"})
+                @UniqueConstraint(
+                        name = "uq_route_stop_route_sequence_city",
+                        columnNames = {"route_id", "stop_sequence", "city"}
+                )
         },
         indexes = {
                 @Index(name = "idx_route_stop_route", columnList = "route_id"),
-                @Index(name = "idx_route_stop_stop", columnList = "stop_id")
+                @Index(name = "idx_route_stop_stop", columnList = "stop_id"),
+                @Index(name = "idx_route_stop_city", columnList = "city")
         }
 )
 @AllArgsConstructor
@@ -39,6 +42,9 @@ public class RouteStopEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private String city; // Denormalizacja dla wydajności i izolacji
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "route_id", nullable = false)
     private RouteEntity route;
@@ -50,19 +56,19 @@ public class RouteStopEntity {
     @Column(name = "stop_sequence", nullable = false)
     private Integer stopSequence;
 
-    // --- GTFS ---
+    // --- GTFS / Operational Data ---
 
     @Column(name = "pickup_type")
     @Builder.Default
-    private Integer pickupType = 0; // 0=regular, 1=no pickup
+    private Integer pickupType = 0;
 
     @Column(name = "drop_off_type")
     @Builder.Default
-    private Integer dropOffType = 0; // 0=regular, 1=no drop-off
+    private Integer dropOffType = 0;
 
     @Column(name = "timepoint")
-    private Integer timepoint; // 1=exact, 0=approximate
+    private Integer timepoint;
 
     @Column(name = "shape_dist_traveled")
-    private Double shapeDistTraveled; // dystans od początku trasy w metrach
+    private Double shapeDistTraveled;
 }

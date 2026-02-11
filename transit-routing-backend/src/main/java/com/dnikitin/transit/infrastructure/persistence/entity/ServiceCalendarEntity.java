@@ -11,8 +11,12 @@ import java.time.LocalDate;
 @Entity
 @Table(
         name = "service_calendar",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_calendar_city_external_id", columnNames = {"city", "service_id_ext"})
+        },
         indexes = {
-                @Index(name = "idx_calendar_external_id", columnList = "service_id_ext")
+                @Index(name = "idx_calendar_city_external", columnList = "city, service_id_ext"),
+                @Index(name = "idx_calendar_city_range", columnList = "city, start_date, end_date")
         }
 )
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
@@ -22,8 +26,11 @@ public class ServiceCalendarEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // Wewnętrzny klucz główny (PK)
 
-    @Column(name = "service_id_ext", unique = true, nullable = false)
+    @Column(name = "service_id_ext", nullable = false)
     private String serviceIdExternal; // mapping of service_id (np. "service_1")
+
+    @Column(nullable = false)
+    private String city;
 
     private boolean monday;
     private boolean tuesday;

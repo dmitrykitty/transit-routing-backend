@@ -54,5 +54,5 @@ public class StopTimeEntity {
     private Double shapeDistTraveled; // shape_dist_traveled (metres from the beggining of the route)
 
     @Column(name = "timepoint")
-    private Integer timepoint; // timepoint (0=szacowany, 1=dokładny)
+    private Integer timepoint;
 }
