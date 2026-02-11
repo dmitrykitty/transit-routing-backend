@@ -1,14 +1,14 @@
 package com.dnikitin.transit.infrastructure.repository;
 
-import com.dnikitin.transit.infrastructure.persistence.entity.StopEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
-public interface StopJpaRepository extends JpaRepository<StopEntity, Long> {
+public interface StopTimeJpaRepository extends JpaRepository<StopTimeEntity, Long> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM StopEntity s WHERE s.city = :cityName")
-    void deleteStopByCityBulk(String cityName);
+    @Query("DELETE FROM StopTimeEntity st WHERE st.city = :cityName")
+    void deleteStopTimeByCityBulk(String cityName);
 }
 
