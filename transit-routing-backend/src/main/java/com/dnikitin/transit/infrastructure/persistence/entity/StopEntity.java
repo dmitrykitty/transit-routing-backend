@@ -40,21 +40,21 @@ public class StopEntity {
     @Column(nullable = false, columnDefinition = "geometry(Point, 4326)")
     private Point location; // Mapping GTFS: stop_lat and stop_lon into JTS Point
 
-    @Column(name = "zone_id")
-    private String zoneId; // GTFS: zone_id (for fare calculation)
-
-    @Column(name = "stop_url")
-    private String url; // GTFS: stop_url
-
-    @Column(name = "location_type")
-    private Integer locationType; // GTFS: location_type (0=stop, 1=station, 2=entrance, etc.)
-
-    @Column(name = "parent_station")
-    private String parentStation; // GTFS: parent_station (ID of the parent hub)
-
-    @Column(name = "stop_timezone")
-    private String timezone; // GTFS: stop_timezone
-
-    @Column(name = "wheelchair_boarding")
-    private Integer wheelchairBoarding; // GTFS: wheelchair_boarding (0=no info, 1=yes, 2=no)
+//    @Column(name = "zone_id")
+//    private String zoneId; // GTFS: zone_id (for fare calculation)
+//
+//    @Column(name = "stop_url")
+//    private String url; // GTFS: stop_url
+//
+//    @Column(name = "location_type")
+//    private Integer locationType; // GTFS: location_type (0=stop, 1=station, 2=entrance, etc.)
+//
+//    @Column(name = "parent_station")
+//    private String parentStation; // GTFS: parent_station (ID of the parent hub)
+//
+//    @Column(name = "stop_timezone")
+//    private String timezone; // GTFS: stop_timezone
+//
+//    @Column(name = "wheelchair_boarding")
+//    private Integer wheelchairBoarding; // GTFS: wheelchair_boarding (0=no info, 1=yes, 2=no)
 }

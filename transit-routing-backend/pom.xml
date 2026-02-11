@@ -99,6 +99,14 @@
             <version>1.6.3</version>
             <scope>compile</scope>
         </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/com.univocity/univocity-parsers -->
+        <dependency>
+            <groupId>com.univocity</groupId>
+            <artifactId>univocity-parsers</artifactId>
+            <version>2.9.1</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -36,8 +36,9 @@ public class RouteEntity {
     @Column(name = "route_id_ext", nullable = false)
     private String routeIdExternal; // GTFS: route_id (Unique within provider)
 
-    @Column(name = "agency_id")
-    private String agencyId; // GTFS: agency_id
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agency_id")
+    private AgencyEntity agency;
 
     @Column(name = "route_number", nullable = false)
     private String routeNumber; // GTFS: route_short_name (e.g., "50")

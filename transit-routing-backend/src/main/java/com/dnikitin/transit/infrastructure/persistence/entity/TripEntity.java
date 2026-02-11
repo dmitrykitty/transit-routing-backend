@@ -55,9 +55,6 @@ public class TripEntity {
     @Column(name = "wheelchair_accessible")
     private Integer wheelchairAccessible; // GTFS: wheelchair_accessible (0=no info, 1=yes, 2=no)
 
-    @Column(name = "block_id")
-    private String blockId; //from blocks.txt
-
     @Column(name = "shift")
     private String shift; // group number
 }
