@@ -7,22 +7,23 @@ spring:
 
   #datbase to connect
   datasource:
-    url: jdbc:postgresql://localhost:5434/transit
+    url: jdbc:postgresql://localhost:5434/transit?reWriteBatchedInserts=true
     username: transit
     password: transit_db
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update #create tables, update, do not delete
+      ddl-auto: update
     properties:
       hibernate:
-        #dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
         format_sql: true
+        order_inserts: true
+        order_updates: true
         jdbc:
           time_zone: UTC
           batch_size: 100
-    show-sql: true
+    show-sql: false
 
   data:
     redis:
@@ -31,5 +32,13 @@ spring:
 
 logging:
   level:
-    org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: trace
+    root: info
+    com.dnikitin.transit: info
+    org.hibernate.SQL: warn
+
+gtfs:
+  cities:
+    Kraków:
+      KRK_A: https://gtfs.ztp.krakow.pl/GTFS_KRK_A.zip
+      KRK_T: https://gtfs.ztp.krakow.pl/GTFS_KRK_T.zip
+      KRK_M: https://gtfs.ztp.krakow.pl/GTFS_KRK_M.zip
