@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.repository;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -12,9 +13,9 @@ import java.util.List;
 public interface TripJpaRepository extends JpaRepository<TripEntity,Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM TripEntity t WHERE t.city = :city")
-    void deleteTripByCityBulk(String city);
+    void deleteTripByCityBulk(CityEntity city);
 
-    List<TripEntity> findAllByCity(String city);
+    List<TripEntity> findAllByCity(CityEntity city);
 
 
 }

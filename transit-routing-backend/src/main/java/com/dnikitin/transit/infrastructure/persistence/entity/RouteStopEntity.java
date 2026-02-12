@@ -23,13 +23,13 @@ import lombok.NoArgsConstructor;
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uq_route_stop_route_sequence_city",
-                        columnNames = {"route_id", "stop_sequence", "city"}
+                        columnNames = {"route_id", "stop_sequence", "city_id"}
                 )
         },
         indexes = {
                 @Index(name = "idx_route_stop_route", columnList = "route_id"),
                 @Index(name = "idx_route_stop_stop", columnList = "stop_id"),
-                @Index(name = "idx_route_stop_city", columnList = "city")
+                @Index(name = "idx_route_stop_city", columnList = "city_id")
         }
 )
 @AllArgsConstructor
@@ -42,8 +42,9 @@ public class RouteStopEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String city; // Denormalizacja dla wydajności i izolacji
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private CityEntity city;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "route_id", nullable = false)

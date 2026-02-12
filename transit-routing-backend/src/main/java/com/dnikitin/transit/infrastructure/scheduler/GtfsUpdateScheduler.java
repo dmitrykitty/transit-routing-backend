@@ -2,7 +2,9 @@ package com.dnikitin.transit.infrastructure.scheduler;
 
 import com.dnikitin.transit.infrastructure.importer.GtfsImportService;
 import com.dnikitin.transit.infrastructure.importer.GtfsProperties;
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.DataImportMetadataEntity;
+import com.dnikitin.transit.infrastructure.repository.CityJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.DataImportMetadataJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ public class GtfsUpdateScheduler {
 
     private final GtfsImportService importService;
     private final DataImportMetadataJpaRepository metadataRepository;
+    private final CityJpaRepository cityRepository;
     private final GtfsProperties gtfsProperties;
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -30,38 +33,39 @@ public class GtfsUpdateScheduler {
 
         gtfsProperties.getCities().forEach((cityName, sources) -> {
             try {
-                processCityUpdate(cityName, sources);
+                CityEntity city = getOrCreateCity(cityName);
+                processCityUpdate(city, sources);
             } catch (Exception e) {
                 log.error("Failed to sync city {}: {}", cityName, e.getMessage());
             }
         });
     }
 
-    private void processCityUpdate(String cityName, Map<String, String> sources) {
-        log.info("Checking update status for city: {}", cityName);
+    private void processCityUpdate(CityEntity city, Map<String, String> sources) {
+        log.info("Checking update status for city: {}", city.getName());
         boolean cityRequiresUpdate = false;
 
         for (Map.Entry<String, String> entry : sources.entrySet()) {
             String sourceId = entry.getKey();
             String url = entry.getValue();
 
-            if (isUpdateRequired(sourceId, url, cityName)) {
-                log.info("Change detected in source: {} for city: {}", sourceId, cityName);
+            if (isUpdateRequired(sourceId, url, city)) {
+                log.info("Change detected in source: {} for city: {}", sourceId, city.getName());
                 cityRequiresUpdate = true;
             }
         }
 
         if (cityRequiresUpdate) {
-            log.info("Triggering full re-import for city: {} due to source changes.", cityName);
-            importService.performFullCityUpdate(cityName, sources);
+            log.info("Triggering full re-import for city: {} due to source changes.", city.getName());
+            importService.performFullCityUpdate(city, sources);
 
             updateMetadataTimestamps(sources);
         } else {
-            log.info("All sources for {} are up-to-date.", cityName);
+            log.info("All sources for {} are up-to-date.", city.getName());
         }
     }
 
-    private boolean isUpdateRequired(String sourceId, String url, String cityName) {
+    private boolean isUpdateRequired(String sourceId, String url, CityEntity city) {
         try {
             HttpHeaders headers = restTemplate.headForHeaders(url);
             String remoteLastModified = headers.getFirst("Last-Modified");
@@ -72,7 +76,7 @@ public class GtfsUpdateScheduler {
             }
 
             var metadata = metadataRepository.findById(sourceId)
-                    .orElseGet(() -> new DataImportMetadataEntity(sourceId, cityName, null, ""));
+                    .orElseGet(() -> new DataImportMetadataEntity(sourceId, city, null, ""));
 
             boolean hasChanged = !remoteLastModified.equals(metadata.getLastModifiedHeader());
 
@@ -95,5 +99,12 @@ public class GtfsUpdateScheduler {
                 metadataRepository.save(m);
             });
         }
+    }
+
+    private CityEntity getOrCreateCity(String cityName) {
+        return cityRepository.findByName(cityName)
+                .orElseGet(() -> cityRepository.save(CityEntity.builder()
+                        .name(cityName)
+                        .build()));
     }
 }

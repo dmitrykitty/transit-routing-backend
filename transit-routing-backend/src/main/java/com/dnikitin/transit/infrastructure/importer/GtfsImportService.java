@@ -1,12 +1,12 @@
 package com.dnikitin.transit.infrastructure.importer;
 
 import com.dnikitin.transit.infrastructure.importer.fileprocessor.GtfsFileProcessor;
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -44,28 +44,28 @@ public class GtfsImportService {
     }
 
     @Transactional
-    public void performFullCityUpdate(String cityName, Map<String, String> sourceUrls) {
-        log.info("Starting orchestrated atomic update for city: {}", cityName);
+    public void performFullCityUpdate(CityEntity city, Map<String, String> sourceUrls) {
+        log.info("Starting orchestrated atomic update for city: {}", city.getName());
+        clearCityData(city);
 
         try {
-            clearCityData(cityName);
 
             for (Map.Entry<String, String> entry : sourceUrls.entrySet()) {
                 String sourceId = entry.getKey(); //"KRK_A"
                 String url = entry.getValue();
 
                 log.info("Downloading and processing bundle: {} from {}", sourceId, url);
-                processZipBundle(url, cityName, sourceId);
+                processZipBundle(url, city, sourceId);
             }
 
-            log.info("Full update for {} completed successfully.", cityName);
+            log.info("Full update for {} completed successfully.", city.getName());
         } catch (Exception e) {
             log.error("Critical error during city update: {}", e.getMessage(), e);
             throw new RuntimeException("City update failed - rolling back transaction", e);
         }
     }
 
-    private void processZipBundle(String url, String cityName, String sourceId) throws IOException {
+    private void processZipBundle(String url, CityEntity city, String sourceId) throws IOException {
         Path tempDir = Files.createTempDirectory("gtfs_import_" + sourceId + "_");
         Map<String, Path> extractedFiles = new HashMap<>();
 
@@ -77,7 +77,6 @@ public class GtfsImportService {
                         String fileName = entry.getName();
                         if (processorsMap.containsKey(fileName)) {
                             Path tempFile = tempDir.resolve(fileName);
-                            // StandardCopyOption.REPLACE_EXISTING zapobiega błędom przy nadpisywaniu
                             Files.copy(zis, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                             extractedFiles.put(fileName, tempFile);
                         }
@@ -90,13 +89,13 @@ public class GtfsImportService {
             for (String fileName : IMPORT_ORDER) {
                 Path file = extractedFiles.get(fileName);
                 if (file != null) {
-                    processFile(fileName, file, cityName, sourceId);
+                    processFile(fileName, file, city, sourceId);
                     extractedFiles.remove(fileName);
                 }
             }
 
             for (Map.Entry<String, Path> remaining : extractedFiles.entrySet()) {
-                processFile(remaining.getKey(), remaining.getValue(), cityName, sourceId);
+                processFile(remaining.getKey(), remaining.getValue(), city, sourceId);
             }
 
         } finally {
@@ -104,24 +103,24 @@ public class GtfsImportService {
         }
     }
 
-    private void processFile(String fileName, Path filePath, String cityName, String sourceId) {
+    private void processFile(String fileName, Path filePath, CityEntity city, String sourceId) {
         GtfsFileProcessor processor = processorsMap.get(fileName);
         log.info("Running processor {} for file: {}", processor.getClass().getSimpleName(), fileName);
 
         try (InputStream is = Files.newInputStream(filePath)) {
-            processor.process(is, cityName, sourceId);
+            processor.process(is, city, sourceId);
         } catch (IOException e) {
             log.error("Failed to read temp file {}: {}", fileName, e.getMessage());
         }
     }
 
-    private void clearCityData(String cityName) {
-        log.warn("Clearing database for city: {} using processor priorities", cityName);
+    private void clearCityData(CityEntity city) {
+        log.warn("Clearing database for city: {} using processor priorities", city.getName());
         processorList.stream()
                 .sorted(Comparator.comparingInt(GtfsFileProcessor::getDeletionPriority).reversed())
                 .forEach(processor -> {
-                    log.debug("Clearing {} for city {}", processor.getName(), cityName);
-                    processor.clear(cityName);
+                    log.info("Clearing {} for city {}", processor.getName(), city.getName());
+                    processor.clear(city);
                 });
     }
 
@@ -129,7 +128,12 @@ public class GtfsImportService {
         try (var files = Files.walk(dir)) {
             files.sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
-                    .forEach(File::delete);
+                    .forEach(file -> {
+                        boolean deleted = file.delete();
+                        if(deleted) {
+                            log.info("Deleted temp file {} inside {}", file.getName(), dir);
+                        }
+                    });
         } catch (IOException e) {
             log.error("Failed to cleanup temp directory {}: {}", dir, e.getMessage());
         }

@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.repository;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.RouteStopEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,7 +12,7 @@ public interface RouteStopJpaRepository extends JpaRepository<RouteStopEntity, L
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM RouteStopEntity rs WHERE rs.city = :city")
-    void deleteRouteStopByCityBulk(String city);
+    void deleteRouteStopByCityBulk(CityEntity city);
 
-    List<RouteStopEntity> findAllByCity(String city);
+    List<RouteStopEntity> findAllByCity(CityEntity city);
 }

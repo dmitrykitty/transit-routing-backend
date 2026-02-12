@@ -10,10 +10,10 @@ import org.locationtech.jts.geom.Point;
 @Table(
         name = "shape_point",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_shape_point_city_shape_seq", columnNames = {"city", "shape_id_ext", "point_sequence"})
+                @UniqueConstraint(name = "uq_shape_point_city_shape_seq", columnNames = {"city_id", "shape_id_ext", "point_sequence"})
         },
         indexes = {
-                @Index(name = "idx_shape_city_sequence", columnList = "city, shape_id_ext, point_sequence")
+                @Index(name = "idx_shape_city_sequence", columnList = "city_id, shape_id_ext, point_sequence")
         }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -23,8 +23,9 @@ public class ShapePointEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String city;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private CityEntity city;
 
     @Column(name = "shape_id_ext", nullable = false)
     private String shapeIdExternal; // GTFS: shape_id (np. "shape_6254")

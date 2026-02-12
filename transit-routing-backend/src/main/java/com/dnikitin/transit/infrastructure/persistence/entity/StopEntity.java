@@ -9,12 +9,12 @@ import lombok.*;
 @Table(
         name = "stop",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_stop_city_external_id", columnNames = {"city", "stop_id_ext"})
+                @UniqueConstraint(name = "uq_stop_city_external_id", columnNames = {"city_id", "stop_id_ext"})
         },
         indexes = {
                 @Index(name = "idx_stop_location_gist", columnList = "location"),
-                @Index(name = "idx_stop_city_external", columnList = "city, stop_id_ext"),
-                @Index(name = "idx_stop_city_name", columnList = "city, name")
+                @Index(name = "idx_stop_city_external", columnList = "city_id, stop_id_ext"),
+                @Index(name = "idx_stop_city_name", columnList = "city_id, name")
         }
 )
 @Data
@@ -39,8 +39,9 @@ public class StopEntity {
     @Column(columnDefinition = "TEXT")
     private String description; // GTFS: stop_desc
 
-    @Column(nullable = false)
-    private String city; // Pole niezbędne do izolacji miast
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private CityEntity city;
 
     @JdbcTypeCode(SqlTypes.GEOMETRY)
     @Column(nullable = false, columnDefinition = "geometry(Point, 4326)")

@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
@@ -32,14 +33,14 @@ public class TripFileProcessor implements GtfsFileProcessor{
     private static final int BATCH_SIZE = 1000;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing trips.txt for city: {} (Source: {})", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing trips.txt for city: {} (Source: {})", city.getName(), source);
 
         // Pre-load Routes and Calendars to RAM for O(1) lookup
-        Map<String, RouteEntity> routeMap = routeRepository.findAllByCity(cityName).stream()
+        Map<String, RouteEntity> routeMap = routeRepository.findAllByCity(city).stream()
                 .collect(Collectors.toMap(RouteEntity::getRouteIdExternal, r -> r));
 
-        Map<String, ServiceCalendarEntity> calendarMap = calendarRepository.findAllByCity(cityName).stream()
+        Map<String, ServiceCalendarEntity> calendarMap = calendarRepository.findAllByCity(city).stream()
                 .collect(Collectors.toMap(ServiceCalendarEntity::getServiceIdExternal, c -> c));
 
 
@@ -56,7 +57,7 @@ public class TripFileProcessor implements GtfsFileProcessor{
                     continue; // Skip malformed or missing dependencies
                 }
 
-                batch.add(mapRowToEntity(row, route, calendar, cityName));
+                batch.add(mapRowToEntity(row, route, calendar, city));
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndClear(batch);
@@ -73,7 +74,7 @@ public class TripFileProcessor implements GtfsFileProcessor{
             totalSaved += batch.size();
         }
 
-        log.info("Successfully imported {} trips for {}", totalSaved, cityName);
+        log.info("Successfully imported {} trips for {}", totalSaved, city.getName());
     }
 
     private void saveAndClear(List<TripEntity> batch) {
@@ -94,23 +95,23 @@ public class TripFileProcessor implements GtfsFileProcessor{
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up trips for city: {}", cityName);
-        tripRepository.deleteTripByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up trips for city: {}", city.getName());
+        tripRepository.deleteTripByCityBulk(city);
 
     }
-    private TripEntity mapRowToEntity(String[] row, RouteEntity route, ServiceCalendarEntity calendar, String cityName) {
+    private TripEntity mapRowToEntity(String[] row, RouteEntity route, ServiceCalendarEntity calendar, CityEntity city) {
         String blockId = row[6];
         String shift = null;
 
         if (blockId != null && !blockId.isBlank()) {
-            shift = blockFileProcessor.getShiftByBlockId(blockId, cityName);
+            shift = blockFileProcessor.getShiftByBlockId(blockId, city);
         }
 
         return TripEntity.builder()
                 .tripIdExternal(row[0])
                 .route(route)
-                .city(cityName)
+                .city(city)
                 .calendar(calendar)
                 .headsign(row[3])
                 .directionId(parseNullableInt(row[5]))

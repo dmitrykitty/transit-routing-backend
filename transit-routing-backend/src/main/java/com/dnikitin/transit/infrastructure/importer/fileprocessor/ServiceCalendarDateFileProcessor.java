@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarDateEntity;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarDateJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
@@ -22,17 +23,17 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
     private final ServiceCalendarDateJpaRepository calendarDateRepository;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing calendar_dates.txt for city: {} (Source: {})", cityName,  source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing calendar_dates.txt for city: {} (Source: {})", city.getName(),  source);
 
         CsvParser parser = createCsvParser();
         List<ServiceCalendarDateEntity> batch = new ArrayList<>();
         parser.iterate(inputStream).forEach(row ->
-                    batch.add(mapToEntity(row, cityName))
+                    batch.add(mapToEntity(row, city))
         );
         calendarDateRepository.saveAll(batch);
 
-        log.info("Imported {} service calendar exceptions for {}", batch.size(), cityName);
+        log.info("Imported {} service calendar exceptions for {}", batch.size(), city.getName());
     }
 
     @Override
@@ -46,17 +47,17 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up calendar dates for city: {}", cityName);
-        calendarDateRepository.deleteServiceCalendarDateByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up calendar dates for city: {}", city.getName());
+        calendarDateRepository.deleteServiceCalendarDateByCityBulk(city);
     }
 
-    private ServiceCalendarDateEntity mapToEntity(String[] row, String cityName) {
+    private ServiceCalendarDateEntity mapToEntity(String[] row, CityEntity city) {
         return ServiceCalendarDateEntity.builder()
                 .serviceIdExternal(row[0])
                 .date(LocalDate.parse(row[1], GTFS_DATE_FORMATTER))
                 .exceptionType(Integer.parseInt(row[2]))
-                .city(cityName)
+                .city(city)
                 .build();
     }
 }

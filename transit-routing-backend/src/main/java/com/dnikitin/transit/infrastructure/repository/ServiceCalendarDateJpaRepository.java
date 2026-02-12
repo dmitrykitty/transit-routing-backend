@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.repository;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarDateEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,7 +12,7 @@ public interface ServiceCalendarDateJpaRepository extends JpaRepository<ServiceC
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM ServiceCalendarDateEntity scd WHERE scd.city = :city")
-    void deleteServiceCalendarDateByCityBulk(String city);
+    void deleteServiceCalendarDateByCityBulk(CityEntity city);
 
-    List<ServiceCalendarDateEntity> findAllByCity(String city);
+    List<ServiceCalendarDateEntity> findAllByCity(CityEntity city);
 }

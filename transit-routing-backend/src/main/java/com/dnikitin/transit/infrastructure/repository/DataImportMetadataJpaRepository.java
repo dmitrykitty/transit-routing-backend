@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.repository;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.DataImportMetadataEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -12,7 +13,7 @@ import java.util.List;
 public interface DataImportMetadataJpaRepository extends JpaRepository<DataImportMetadataEntity, String> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM DataImportMetadataEntity dim WHERE dim.city = :city")
-    void deleteMetaDataByCityBulk(String city);
+    void deleteMetaDataByCityBulk(CityEntity city);
 
-    List<DataImportMetadataEntity> findAllByCity(String city);
+    List<DataImportMetadataEntity> findAllByCity(CityEntity city);
 }

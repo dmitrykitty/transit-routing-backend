@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.StopEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
@@ -31,14 +32,14 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
     private static final int BATCH_SIZE = 5000;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Starting import of stop_times.txt for city: {} (Source: {})", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Starting import of stop_times.txt for city: {} (Source: {})", city.getName(), source);
 
         //getting only mapped ID (External -> Internal)
-        Map<String, Long> tripIdMap = tripRepository.findAllByCity(cityName).stream()
+        Map<String, Long> tripIdMap = tripRepository.findAllByCity(city).stream()
                 .collect(Collectors.toMap(TripEntity::getTripIdExternal, TripEntity::getId));
 
-        Map<String, Long> stopIdMap = stopRepository.findAllByCity(cityName).stream()
+        Map<String, Long> stopIdMap = stopRepository.findAllByCity(city).stream()
                 .collect(Collectors.toMap(StopEntity::getStopIdExternal, StopEntity::getId));
 
         CsvParser parser = createCsvParser();
@@ -57,7 +58,7 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
             }
 
             try {
-                batch.add(mapRowToEntity(row, tripInternalId, stopInternalId, cityName));
+                batch.add(mapRowToEntity(row, tripInternalId, stopInternalId, city));
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndClear(batch);
@@ -77,7 +78,7 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
             totalSaved += batch.size();
         }
 
-        log.info("Imported {} stop_times for {} (skipped {})", totalSaved, cityName, skipped);
+        log.info("Imported {} stop_times for {} (skipped {})", totalSaved, city.getName(), skipped);
     }
 
     private void saveAndClear(List<StopTimeEntity> batch) {
@@ -98,12 +99,12 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
 
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up stop times for city: {}", cityName);
-        stopTimeRepository.deleteStopTimeByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up stop times for city: {}", city.getName());
+        stopTimeRepository.deleteStopTimeByCityBulk(city);
     }
 
-    private StopTimeEntity mapRowToEntity(String[] row, Long tripInternalId, Long stopInternalId, String cityName) {
+    private StopTimeEntity mapRowToEntity(String[] row, Long tripInternalId, Long stopInternalId, CityEntity city) {
         //getReference -> getProxy to reduce amount of selects to DB
         return StopTimeEntity.builder()
                 .trip(entityManager.getReference(TripEntity.class, tripInternalId))
@@ -116,7 +117,7 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
                 .dropOffType(parseOrDefault(row[7]))
                 .shapeDistTraveled(parseNullableDouble(row[8]))
                 .timepoint(parseNullableInt(row[9]))
-                .city(cityName)
+                .city(city)
                 .build();
     }
 

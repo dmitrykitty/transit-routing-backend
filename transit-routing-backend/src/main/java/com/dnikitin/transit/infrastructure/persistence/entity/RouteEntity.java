@@ -15,13 +15,13 @@ import java.util.List;
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uq_route_city_external_id",
-                        columnNames = {"city", "route_id_ext"}
+                        columnNames = {"city_id", "route_id_ext"}
                 )
         },
         indexes = {
-                @Index(name = "idx_route_lookup", columnList = "city, route_number"),
-                @Index(name = "idx_route_city_external", columnList = "city, route_id_ext"),
-                @Index(name = "idx_route_city_vehicle", columnList = "city, vehicle_type")
+                @Index(name = "idx_route_lookup", columnList = "city_id, route_number"),
+                @Index(name = "idx_route_city_external", columnList = "city_id, route_id_ext"),
+                @Index(name = "idx_route_city_vehicle", columnList = "city_id, vehicle_type")
         }
 )
 @Data
@@ -50,8 +50,9 @@ public class RouteEntity {
 //    @Column(name = "description", columnDefinition = "TEXT")
 //    private String description; // GTFS: route_desc
 
-    @Column(nullable = false)
-    private String city; // Custom field for city-based logic
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private CityEntity city;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "vehicle_type", nullable = false)

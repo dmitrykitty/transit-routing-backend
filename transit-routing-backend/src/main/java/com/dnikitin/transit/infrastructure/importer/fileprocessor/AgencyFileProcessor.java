@@ -1,6 +1,7 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
 import com.dnikitin.transit.infrastructure.persistence.entity.AgencyEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.repository.AgencyJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,10 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
     private final AgencyJpaRepository agencyRepository;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing agency.txt for city: {} (Source: {})", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing agency.txt for city: {} (Source: {})", city.getName(), source);
 
-        Set<String> existingAgencyIds = agencyRepository.findAllByCity(cityName).stream()
+        Set<String> existingAgencyIds = agencyRepository.findAllByCity(city).stream()
                 .map(AgencyEntity::getAgencyIdExternal)
                 .collect(Collectors.toSet());
 
@@ -35,19 +36,19 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
             String agencyExtId = row[0];
 
             if (existingAgencyIds.contains(agencyExtId)) {
-                log.debug("Agency {} already exists for city {}, skipping", agencyExtId, cityName);
+                log.debug("Agency {} already exists for city {}, skipping", agencyExtId, city.getName());
                 continue;
             }
 
-            batch.add(mapToEntity(row, cityName));
+            batch.add(mapToEntity(row, city));
             existingAgencyIds.add(agencyExtId);
         }
 
         if (!batch.isEmpty()) {
             agencyRepository.saveAll(batch);
-            log.info("Imported {} agencies for {}", batch.size(), cityName);
+            log.info("Imported {} agencies for {}", batch.size(), city.getName());
         } else {
-            log.info("No new agencies to import for {}", cityName);
+            log.info("No new agencies to import for {}", city.getName());
         }
     }
 
@@ -62,17 +63,17 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up agencies for city: {}", cityName);
-        agencyRepository.deleteAgencyByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up agencies for city: {}", city.getName());
+        agencyRepository.deleteAgencyByCityBulk(city);
     }
 
-    private AgencyEntity mapToEntity(String[] row, String cityName) {
+    private AgencyEntity mapToEntity(String[] row, CityEntity city) {
         return AgencyEntity.builder()
                 .agencyIdExternal(row[0])
                 .name(row[1])
                 .url(row[2])
-                .city(cityName)
+                .city(city)
                 .timezone(row[3])
                 .lang(blankToNull(row[4]))
                 .phone(blankToNull(row[5]))

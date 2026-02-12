@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.StopEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
 import com.dnikitin.transit.infrastructure.repository.StopJpaRepository;
@@ -28,8 +29,8 @@ public class StopFileProcessor implements GtfsFileProcessor {
     private static final int BATCH_SIZE = 1000;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing stops.txt for city: {} (Source: {})", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing stops.txt for city: {} (Source: {})", city.getName(), source);
 
         CsvParser parser = createCsvParser();
 
@@ -38,7 +39,7 @@ public class StopFileProcessor implements GtfsFileProcessor {
 
         for (String[] row : parser.iterate(inputStream)) {
             try {
-                StopEntity stop = mapRowToEntity(row, cityName);
+                StopEntity stop = mapRowToEntity(row, city);
 
                 batch.add(stop);
 
@@ -56,10 +57,10 @@ public class StopFileProcessor implements GtfsFileProcessor {
             saveAndClear(batch);
             totalSaved += batch.size();
         }
-        log.info("Import finished. Total stops persisted for {}: {}", cityName, totalSaved);
+        log.info("Import finished. Total stops persisted for {}: {}", city.getName(), totalSaved);
     }
 
-    private StopEntity mapRowToEntity(String[] row, String cityName) {
+    private StopEntity mapRowToEntity(String[] row, CityEntity city) {
         double lat = Double.parseDouble(row[4]); // stop_lat
         double lon = Double.parseDouble(row[5]); // stop_lon
 
@@ -68,7 +69,7 @@ public class StopFileProcessor implements GtfsFileProcessor {
                 .stopCode(row[1])
                 .name(row[2])
                 .description(row[3])
-                .city(cityName)
+                .city(city)
                 .location(geometryFactory.createPoint(new Coordinate(lon, lat)))
                 .build();
     }
@@ -90,8 +91,8 @@ public class StopFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up stop for city: {}", cityName);
-        stopRepository.deleteStopByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up stop for city: {}", city.getName());
+        stopRepository.deleteStopByCityBulk(city);
     }
 }

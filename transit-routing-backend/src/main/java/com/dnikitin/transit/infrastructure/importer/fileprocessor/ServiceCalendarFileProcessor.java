@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
@@ -24,10 +25,10 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
     private final ServiceCalendarJpaRepository calendarRepository;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing calendar.txt for city: {} (Source: {})", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing calendar.txt for city: {} (Source: {})", city.getName(), source);
 
-        Set<String> existingServiceIds = calendarRepository.findAllByCity(cityName).stream()
+        Set<String> existingServiceIds = calendarRepository.findAllByCity(city).stream()
                 .map(ServiceCalendarEntity::getServiceIdExternal)
                 .collect(Collectors.toSet());
 
@@ -42,15 +43,15 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
                 continue;
             }
 
-            batch.add(mapToEntity(row, cityName));
+            batch.add(mapToEntity(row, city));
             existingServiceIds.add(serviceExtId);
         }
 
         if (!batch.isEmpty()) {
             calendarRepository.saveAll(batch);
-            log.info("Imported {} new service calendars for {}", batch.size(), cityName);
+            log.info("Imported {} new service calendars for {}", batch.size(), city.getName());
         } else {
-            log.info("No new service calendars to import for {}", cityName);
+            log.info("No new service calendars to import for {}", city.getName());
         }
     }
 
@@ -65,12 +66,12 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up calendar for city: {}", cityName);
-        calendarRepository.deleteServiceCalendarByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up calendar for city: {}", city.getName());
+        calendarRepository.deleteServiceCalendarByCityBulk(city);
     }
 
-    private ServiceCalendarEntity mapToEntity(String[] row, String cityName) {
+    private ServiceCalendarEntity mapToEntity(String[] row, CityEntity city) {
         return ServiceCalendarEntity.builder()
                 .serviceIdExternal(row[0])
                 .monday(parseBooleanFlag(row[1]))
@@ -82,7 +83,7 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
                 .sunday(parseBooleanFlag(row[7]))
                 .startDate(LocalDate.parse(row[8], GTFS_DATE_FORMATTER))
                 .endDate(LocalDate.parse(row[9], GTFS_DATE_FORMATTER))
-                .city(cityName)
+                .city(city)
                 .build();
     }
 

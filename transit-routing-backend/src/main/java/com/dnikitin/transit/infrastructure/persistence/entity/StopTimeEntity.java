@@ -15,7 +15,7 @@ import java.time.LocalTime;
                 @Index(name = "idx_stop_time_trip", columnList = "trip_id"),
                 @Index(name = "idx_stop_time_stop", columnList = "stop_id"),
                 @Index(name = "idx_stop_time_departure", columnList = "departure_time"),
-                @Index(name = "idx_stop_time_city", columnList = "city") // Kluczowe dla Bulk Delete
+                @Index(name = "idx_stop_time_city", columnList = "city_id") // Kluczowe dla Bulk Delete
         }
 )
 @Data
@@ -28,8 +28,9 @@ public class StopTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String city;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private CityEntity city;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "trip_id", nullable = false)

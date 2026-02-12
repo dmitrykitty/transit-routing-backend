@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ShapePointEntity;
 import com.dnikitin.transit.infrastructure.repository.ShapePointJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
@@ -26,8 +27,8 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing shapes.txt for city: {} (Source: {})", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing shapes.txt for city: {} (Source: {})", city.getName(), source);
 
         CsvParser parser = createCsvParser();
         List<ShapePointEntity> batch = new ArrayList<>(BATCH_SIZE);
@@ -38,7 +39,7 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
                 double lat = Double.parseDouble(row[1]);
                 double lon = Double.parseDouble(row[2]);
 
-                batch.add(mapToEntity(row, lat, lon, cityName));
+                batch.add(mapToEntity(row, lat, lon, city));
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndFlush(batch);
@@ -57,7 +58,7 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
             totalSaved += batch.size();
         }
 
-        log.info("Imported {} shape points for {} from {}", totalSaved, cityName, source);
+        log.info("Imported {} shape points for {} from {}", totalSaved, city.getName(), source);
     }
 
     @Override
@@ -71,18 +72,18 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up calendar for city: {}", cityName);
-        shapePointRepository.deleteShapePointByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up calendar for city: {}", city.getName());
+        shapePointRepository.deleteShapePointByCityBulk(city);
     }
 
-    private ShapePointEntity mapToEntity(String[] row, double lat, double lon, String cityName) {
+    private ShapePointEntity mapToEntity(String[] row, double lat, double lon, CityEntity city) {
         return ShapePointEntity.builder()
                 .shapeIdExternal(row[0])
                 .location(geometryFactory.createPoint(new Coordinate(lon, lat)))
                 .sequence(Integer.parseInt(row[3]))
                 .distTraveled(parseNullableDouble(row[4]))
-                .city(cityName)
+                .city(city)
                 .build();
     }
 

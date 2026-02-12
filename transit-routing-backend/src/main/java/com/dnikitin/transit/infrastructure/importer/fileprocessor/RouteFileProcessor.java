@@ -1,9 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
-import com.dnikitin.transit.infrastructure.persistence.entity.AgencyEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.VehicleType;
+import com.dnikitin.transit.infrastructure.persistence.entity.*;
 import com.dnikitin.transit.infrastructure.repository.AgencyJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.RouteJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
@@ -28,10 +25,10 @@ public class RouteFileProcessor implements GtfsFileProcessor {
     private static final int BATCH_SIZE = 500;
 
     @Override
-    public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing routes.txt for city: {} from source: {}", cityName, source);
+    public void process(InputStream inputStream, CityEntity city, String source) {
+        log.info("Processing routes.txt for city: {} from source: {}", city.getName(), source);
 
-        Map<String, AgencyEntity> agencyMap = agencyRepository.findAllByCity(cityName).stream()
+        Map<String, AgencyEntity> agencyMap = agencyRepository.findAllByCity(city).stream()
                 .collect(Collectors.toMap(AgencyEntity::getAgencyIdExternal, a -> a));
 
         VehicleType vehicleType = determineVehicleType(source);
@@ -42,7 +39,7 @@ public class RouteFileProcessor implements GtfsFileProcessor {
 
         for (String[] row : parser.iterate(inputStream)) {
             try {
-                batch.add(mapToEntity(row, agencyMap, vehicleType, cityName));
+                batch.add(mapToEntity(row, agencyMap, vehicleType, city));
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndClear(batch);
@@ -58,7 +55,7 @@ public class RouteFileProcessor implements GtfsFileProcessor {
             totalSaved += batch.size();
         }
 
-        log.info("Imported {} routes for {} from {}", totalSaved, cityName, source);
+        log.info("Imported {} routes for {} from {}", totalSaved, city.getName(), source);
     }
 
     private void saveAndClear(List<RouteEntity> batch) {
@@ -79,23 +76,23 @@ public class RouteFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear(String cityName) {
-        log.info("Cleaning up routes for city: {}", cityName);
-        routeRepository.deleteRouteByCityBulk(cityName);
+    public void clear(CityEntity city) {
+        log.info("Cleaning up routes for city: {}", city.getName());
+        routeRepository.deleteRouteByCityBulk(city);
     }
 
     private RouteEntity mapToEntity(
             String[] row,
             Map<String, AgencyEntity> agencyMap,
             VehicleType vehicleType,
-            String cityName) {
+            CityEntity city) {
         return RouteEntity.builder()
                 .routeIdExternal(row[0])
                 .agency(resolveAgency(row[1], agencyMap))
                 .routeNumber(row[2])
                 .name(row[3])
                 .vehicleType(vehicleType)
-                .city(cityName)
+                .city(city)
                 .build();
     }
 

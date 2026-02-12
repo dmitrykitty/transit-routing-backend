@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Table(
         name = "data_import_metadata",
         indexes = {
-                @Index(name = "idx_metadata_city", columnList = "city")
+                @Index(name = "idx_metadata_city", columnList = "city_id")
         }
 )
 @Data
@@ -25,8 +25,9 @@ public class DataImportMetadataEntity {
     @Column(name = "file_id")
     private String fileId;
 
-    @Column(nullable = false)
-    private String city;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "city_id", nullable = false)
+    private CityEntity city;
 
     @Column(name = "last_import_timestamp")
     private LocalDateTime lastImportTimestamp;

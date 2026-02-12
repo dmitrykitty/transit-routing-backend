@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 
@@ -7,10 +8,10 @@ import java.io.InputStream;
 
 
 public interface GtfsFileProcessor {
-    void process(InputStream inputStream, String cityName, String source);
+    void process(InputStream inputStream, CityEntity city, String source);
     String getName();
     int getDeletionPriority();
-    void clear(String cityName);
+    void clear(CityEntity city);
 
 
     default CsvParser createCsvParser() {
