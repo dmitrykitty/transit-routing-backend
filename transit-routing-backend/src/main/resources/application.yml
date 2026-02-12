@@ -38,7 +38,7 @@ logging:
 
 gtfs:
   cities:
-    Kraków:
+    Krakow:
       KRK_A: https://gtfs.ztp.krakow.pl/GTFS_KRK_A.zip
       KRK_T: https://gtfs.ztp.krakow.pl/GTFS_KRK_T.zip
       KRK_M: https://gtfs.ztp.krakow.pl/GTFS_KRK_M.zip

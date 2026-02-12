@@ -20,22 +20,4 @@ public class TripSearchService {
         this.tripRepository = tripRepository;
     }
 
-    public List<TripEntity> findDirectTrips(
-            long fromStopId,
-            long toStopId,
-            OffsetDateTime fromTime,
-            OffsetDateTime toTime) {
-
-        List<TripEntity> tripsByTime = tripRepository.findTripsByTime(fromTime, toTime);
-
-        List<Long> listOfRouteIds = tripsByTime.stream()
-                .map(tripEntity -> tripEntity.getRoute().getId())
-                .distinct()
-                .toList();
-
-        List<RouteStopEntity> byRouteIdsWithStops = routeStopRepository.findByRouteIdsWithStops(listOfRouteIds);
-
-        return tripsByTime;
-    }
-
 }

@@ -11,8 +11,8 @@ import java.util.List;
 @Repository
 public interface TripJpaRepository extends JpaRepository<TripEntity,Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM TripEntity t WHERE t.city = :cityName")
-    void deleteTripByCityBulk(String cityName);
+    @Query("DELETE FROM TripEntity t WHERE t.city = :city")
+    void deleteTripByCityBulk(String city);
 
     List<TripEntity> findAllByCity(String city);
 

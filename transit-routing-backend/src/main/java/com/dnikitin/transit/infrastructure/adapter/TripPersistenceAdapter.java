@@ -22,8 +22,6 @@ public class TripPersistenceAdapter implements TripQueryPort {
 
     @Override
     public List<Trip> findByDepartureWindow(OffsetDateTime from, OffsetDateTime to) {
-        return tripRepository.findTripsByTime(from, to).stream()
-                .map(mapper::toTrip)
-                .toList();
+        return List.of();
     }
 }

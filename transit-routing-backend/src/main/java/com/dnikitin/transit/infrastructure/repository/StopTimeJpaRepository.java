@@ -11,7 +11,7 @@ public interface StopTimeJpaRepository extends JpaRepository<StopTimeEntity, Lon
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM StopTimeEntity st WHERE st.city = :city")
-    void deleteStopTimeByCityBulk(String cityName);
+    void deleteStopTimeByCityBulk(String city);
 
     List<StopTimeEntity> findAllByCity(String city);
 }

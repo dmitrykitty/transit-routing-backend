@@ -66,7 +66,7 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
                 }
             } catch (Exception e) {
                 skipped++;
-                log.info("Imported {} stop_times for {} (skipped {})", totalSaved, cityName, skipped);
+                log.error("Error parsing row for trip {}: {}", row[0], e.getMessage());
             }
         }
 
