@@ -19,7 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class ShapeFileProcessor implements GtfsFileProcessor {
-    private static final int BATCH_SIZE = 2500;
+    private static final int BATCH_SIZE = 5000;
 
     private final ShapePointJpaRepository shapePointRepository;
     private final EntityManager entityManager;

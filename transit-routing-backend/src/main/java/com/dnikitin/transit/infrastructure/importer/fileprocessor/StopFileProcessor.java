@@ -57,7 +57,7 @@ public class StopFileProcessor implements GtfsFileProcessor {
         log.info("Import finished. Total stops persisted for {}: {}", cityName, totalSaved);
     }
 
-    private StopEntity mapRowToEntity(String[] row) {
+    private StopEntity mapRowToEntity(String[] row, String cityName) {
         double lat = Double.parseDouble(row[4]); // stop_lat
         double lon = Double.parseDouble(row[5]); // stop_lon
 
@@ -66,13 +66,14 @@ public class StopFileProcessor implements GtfsFileProcessor {
                 .stopCode(row[1])
                 .name(row[2])
                 .description(row[3])
-                .location(geometryFactory.createPoint(new Coordinate(lat, lon)))
+                .city(cityName)
+                .location(geometryFactory.createPoint(new Coordinate(lon, lat)))
                 .build();
     }
 
     @Override
     public String getName() {
-        return "stop.txt";
+        return "stops.txt";
     }
 
     @Override

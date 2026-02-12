@@ -12,6 +12,7 @@ import java.util.List;
 @Service
 public class TripSearchService {
     private final RouteStopJpaRepository routeStopRepository;
+    private final TripJpaRepository tripRepository;
 
 
     public TripSearchService(RouteStopJpaRepository routeStopRepository, TripJpaRepository tripRepository) {
@@ -34,6 +35,7 @@ public class TripSearchService {
 
         List<RouteStopEntity> byRouteIdsWithStops = routeStopRepository.findByRouteIdsWithStops(listOfRouteIds);
 
+        return tripsByTime;
     }
 
 }
