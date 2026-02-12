@@ -25,8 +25,8 @@ public class StopFileProcessor implements GtfsFileProcessor {
     private static final int INTERNAL_BATCH_SIZE = 1000;
 
     @Override
-    public void process(InputStream inputStream, String cityName) {
-        log.info("Processing stops.txt for city: {}", cityName);
+    public void process(InputStream inputStream, String cityName, String source) {
+        log.info("Processing stops.txt for city: {} (Source: {})", cityName, source);
 
         CsvParser parser = createCsvParser();
 
@@ -35,7 +35,7 @@ public class StopFileProcessor implements GtfsFileProcessor {
 
         for (String[] row : parser.iterate(inputStream)) {
             try {
-                StopEntity stop = mapRowToEntity(row);
+                StopEntity stop = mapRowToEntity(row, cityName);
 
                 stops.add(stop);
 
@@ -81,7 +81,8 @@ public class StopFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        stopRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up stop for city: {}", cityName);
+        stopRepository.deleteStopByCityBulk(cityName);
     }
 }

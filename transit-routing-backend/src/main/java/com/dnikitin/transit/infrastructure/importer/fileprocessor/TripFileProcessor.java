@@ -31,15 +31,14 @@ public class TripFileProcessor implements GtfsFileProcessor{
     private static final int BATCH_SIZE = 1000;
 
     @Override
-    public void process(InputStream inputStream, String cityName) {
-        log.info("Processing trips.txt for city: {}", cityName);
+    public void process(InputStream inputStream, String cityName, String source) {
+        log.info("Processing trips.txt for city: {} (Source: {})", cityName, source);
 
         // Pre-load Routes and Calendars to RAM for O(1) lookup
-        Map<String, RouteEntity> routeMap = routeRepository.findAll().stream()
-                .filter(r -> r.getCity().equals(cityName))
+        Map<String, RouteEntity> routeMap = routeRepository.findAllByCity(cityName).stream()
                 .collect(Collectors.toMap(RouteEntity::getRouteIdExternal, r -> r));
 
-        Map<String, ServiceCalendarEntity> calendarMap = calendarRepository.findAll().stream()
+        Map<String, ServiceCalendarEntity> calendarMap = calendarRepository.findAllByCity(cityName).stream()
                 .collect(Collectors.toMap(ServiceCalendarEntity::getServiceIdExternal, c -> c));
 
 
@@ -60,8 +59,7 @@ public class TripFileProcessor implements GtfsFileProcessor{
                 continue;
             }
 
-            TripEntity trip = mapRowToEntity(row, route, calendar);
-            trips.add(trip);
+                buffer.add(mapRowToEntity(row, route, calendar, cityName));
 
             if (trips.size() >= BATCH_SIZE) {
                 tripRepository.saveAll(trips);
@@ -86,21 +84,23 @@ public class TripFileProcessor implements GtfsFileProcessor{
 
     @Override
     public int getDeletionPriority() {
-        return 5;
+        return 9;
     }
 
     @Override
-    public void clear() {
-        tripRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up trips for city: {}", cityName);
+        tripRepository.deleteTripByCityBulk(cityName);
 
     }
     private TripEntity mapRowToEntity(String[] row, RouteEntity route, ServiceCalendarEntity calendar) {
         String blockId = row[6];
-        String shift = blockFileProcessor.getBlockShiftMap().get(blockId);
+        String shift = blockFileProcessor.getShiftByBlockId(blockId, cityName);
 
         return TripEntity.builder()
                 .tripIdExternal(row[0])
                 .route(route)
+                .city(cityName)
                 .calendar(calendar)
                 .headsign(row[3])
                 .directionId(row[5] != null ? Integer.parseInt(row[5]) : null)

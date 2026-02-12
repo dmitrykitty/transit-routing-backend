@@ -1,30 +1,46 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
 import com.univocity.parsers.csv.CsvParser;
-import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class BlockFileProcessor implements GtfsFileProcessor {
-    @Getter
-    private final Map<String, String> blockShiftMap = new HashMap<>();
+
+    //tread safe for multiple cities
+    private final Map<String, Map<String, String>> cityBlockCache = new ConcurrentHashMap<>();
 
     @Override
-    public void process(InputStream inputStream, String cityName) {
-        log.info("Loading block-to-shift mappings into memory...");
+    public void process(InputStream inputStream, String cityName, String source) {
+        log.info("Loading block-to-shift mappings into RAM for city: {}", cityName);
+
+        Map<String, String> blockMap = new HashMap<>();
+
         CsvParser parser = createCsvParser();
         parser.iterate(inputStream).forEach(row -> {
-            // row[0] = block_id, row[1] = shift
-            blockShiftMap.put(row[0], row[1]);
+            if (row.length >= 2) {
+                blockMap.put(row[0], row[1]); // block_id -> shift
+            }
         });
 
-        log.info("Loaded {} block mappings", blockShiftMap.size());
+        cityBlockCache.put(cityName, Collections.unmodifiableMap(blockMap));
+        log.info("Successfully cached {} blocks in RAM for {}", blockMap.size(), cityName);
+    }
+
+    public String getShiftByBlockId(String blockId, String cityName) {
+        if (blockId == null || cityName == null) return null;
+
+        Map<String, String> blockMap = cityBlockCache.get(cityName);
+        return (blockMap != null) ? blockMap.get(blockId) : null;
     }
 
     @Override
@@ -38,7 +54,8 @@ public class BlockFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        blockShiftMap.clear();
+    public void clear(String cityName) {
+        log.info("Clearing RAM block cache for city: {}", cityName);
+        cityBlockCache.remove(cityName);
     }
 }

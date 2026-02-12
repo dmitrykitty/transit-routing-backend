@@ -28,7 +28,7 @@ public class RouteFileProcessor implements GtfsFileProcessor {
     public void process(InputStream inputStream, String cityName, String source) {
         log.info("Processing routes.txt for city: {} from source: {}", cityName, source);
 
-        Map<String, AgencyEntity> agencyMap = agencyRepository.findAll().stream()
+        Map<String, AgencyEntity> agencyMap = agencyRepository.findAllByCity(cityName).stream()
                 .collect(Collectors.toMap(AgencyEntity::getAgencyIdExternal, a -> a));
 
         VehicleType vehicleType = determineVehicleType(source);
@@ -63,8 +63,9 @@ public class RouteFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        routeRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up routes for city: {}", cityName);
+        routeRepository.deleteRouteByCityBulk(cityName);
     }
     private RouteEntity mapToEntity(
             String[] row,

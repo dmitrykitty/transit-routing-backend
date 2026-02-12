@@ -38,7 +38,7 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
                 double lat = Double.parseDouble(row[1]);
                 double lon = Double.parseDouble(row[2]);
 
-                batch.add(mapToEntity(row, lat, lon));
+                batch.add(mapToEntity(row, lat, lon, cityName));
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndFlush(batch);
@@ -69,16 +69,18 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        shapePointRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up calendar for city: {}", cityName);
+        shapePointRepository.deleteShapePointByCityBulk(cityName);
     }
 
-    private ShapePointEntity mapToEntity(String[] row, double lat, double lon) {
+    private ShapePointEntity mapToEntity(String[] row, double lat, double lon, String cityName) {
         return ShapePointEntity.builder()
                 .shapeIdExternal(row[0])
                 .location(geometryFactory.createPoint(new Coordinate(lon, lat)))
                 .sequence(Integer.parseInt(row[3]))
                 .distTraveled(parseNullableDouble(row[4]))
+                .city(cityName)
                 .build();
     }
 

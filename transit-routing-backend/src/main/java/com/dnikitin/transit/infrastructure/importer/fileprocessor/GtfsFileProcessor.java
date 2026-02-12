@@ -7,10 +7,10 @@ import java.io.InputStream;
 
 
 public interface GtfsFileProcessor {
-    void process(InputStream inputStream, String cityName);
+    void process(InputStream inputStream, String cityName, String source);
     String getName();
     int getDeletionPriority();
-    void clear();
+    void clear(String cityName);
 
 
     default CsvParser createCsvParser() {

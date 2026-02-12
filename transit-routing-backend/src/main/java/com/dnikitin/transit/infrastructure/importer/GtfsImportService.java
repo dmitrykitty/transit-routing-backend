@@ -116,8 +116,8 @@ public class GtfsImportService {
         processorList.stream()
                 .sorted(Comparator.comparingInt(GtfsFileProcessor::getDeletionPriority).reversed())
                 .forEach(processor -> {
-                    log.debug("Cleaning {} table...", processor.getName());
-                    processor.clear();
+                    log.debug("Clearing {} for city {}", processor.getName(), cityName);
+                    processor.clear(cityName);
                 });
     }
 
