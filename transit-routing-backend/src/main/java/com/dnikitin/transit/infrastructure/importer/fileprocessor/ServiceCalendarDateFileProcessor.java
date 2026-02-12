@@ -32,6 +32,8 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
         );
 
         calendarDateRepository.saveAll(batch);
+
+        calendarDateRepository.saveAll(batch);
         log.info("Imported {} service calendar exceptions for {}", batch.size(), cityName);
     }
 

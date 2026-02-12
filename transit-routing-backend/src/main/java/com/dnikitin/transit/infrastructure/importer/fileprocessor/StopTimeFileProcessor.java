@@ -68,19 +68,11 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
                 skipped++;
                 log.info("Imported {} stop_times for {} (skipped {})", totalSaved, cityName, skipped);
             }
-
-            if (batch.size() >= BATCH_SIZE) {
-                stopTimeRepository.saveAll(batch);
-                totalSaved += batch.size();
-                batch.clear();
-                entityManager.clear();
-            }
         }
 
         if (!batch.isEmpty()) {
-            stopTimeRepository.saveAll(batch);
+            saveAndClear(batch);
             totalSaved += batch.size();
-            entityManager.clear();
         }
 
         log.info("Imported {} stop_times for {} (skipped {})", totalSaved, cityName, skipped);

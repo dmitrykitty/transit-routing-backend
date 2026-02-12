@@ -1,8 +1,10 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
 import com.dnikitin.transit.infrastructure.persistence.entity.StopEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
 import com.dnikitin.transit.infrastructure.repository.StopJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Coordinate;
@@ -21,8 +23,9 @@ public class StopFileProcessor implements GtfsFileProcessor {
 
     private final StopJpaRepository stopRepository;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+    private final EntityManager entityManager;
 
-    private static final int INTERNAL_BATCH_SIZE = 1000;
+    private static final int BATCH_SIZE = 1000;
 
     @Override
     public void process(InputStream inputStream, String cityName, String source) {
@@ -30,29 +33,28 @@ public class StopFileProcessor implements GtfsFileProcessor {
 
         CsvParser parser = createCsvParser();
 
-        List<StopEntity> stops = new ArrayList<>(INTERNAL_BATCH_SIZE);
+        List<StopEntity> batch = new ArrayList<>(BATCH_SIZE);
         int totalSaved = 0;
 
         for (String[] row : parser.iterate(inputStream)) {
             try {
                 StopEntity stop = mapRowToEntity(row, cityName);
 
-                stops.add(stop);
+                batch.add(stop);
 
-                if (stops.size() >= INTERNAL_BATCH_SIZE) {
-                    stopRepository.saveAll(stops);
-                    totalSaved += stops.size();
-                    log.debug("Intermediate save: {} stops persisted so far", totalSaved);
-                    stops.clear();
+                if (batch.size() >= BATCH_SIZE) {
+                    saveAndClear(batch);
+                    totalSaved += batch.size();
+                    batch.clear();
                 }
             } catch (Exception e) {
-                log.error("Error at row {}: {}", totalSaved + stops.size(), e.getMessage());
+                log.error("Error at row {}: {}", totalSaved + batch.size(), e.getMessage());
             }
         }
 
-        if(!stops.isEmpty()) {
-            stopRepository.saveAll(stops);
-            totalSaved += stops.size();
+        if(!batch.isEmpty()) {
+            saveAndClear(batch);
+            totalSaved += batch.size();
         }
         log.info("Import finished. Total stops persisted for {}: {}", cityName, totalSaved);
     }
@@ -69,6 +71,12 @@ public class StopFileProcessor implements GtfsFileProcessor {
                 .city(cityName)
                 .location(geometryFactory.createPoint(new Coordinate(lon, lat)))
                 .build();
+    }
+
+    private void saveAndClear(List<StopEntity> batch) {
+        stopRepository.saveAll(batch);
+        entityManager.flush();
+        entityManager.clear();
     }
 
     @Override

@@ -32,6 +32,8 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
                 batch.add(mapToEntity(row, cityName))
         );
 
+        calendarRepository.saveAll(batch);
+
         log.info("Imported {} service calendars for {}", batch.size(), cityName);
     }
 

@@ -2,6 +2,7 @@ package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
 import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
 import com.dnikitin.transit.infrastructure.repository.RouteJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarJpaRepository;
@@ -44,7 +45,7 @@ public class TripFileProcessor implements GtfsFileProcessor{
 
 
         CsvParser parser = createCsvParser();
-        List<TripEntity> buffer = new ArrayList<>(BATCH_SIZE);
+        List<TripEntity> batch = new ArrayList<>(BATCH_SIZE);
         int totalSaved = 0;
 
         for (String[] row : parser.iterate(inputStream)) {
@@ -56,29 +57,29 @@ public class TripFileProcessor implements GtfsFileProcessor{
                     continue; // Skip malformed or missing dependencies
                 }
 
-                buffer.add(mapRowToEntity(row, route, calendar, cityName));
+                batch.add(mapRowToEntity(row, route, calendar, cityName));
 
-                if (buffer.size() >= BATCH_SIZE) {
-                    flushAndClear(buffer);
-                    totalSaved += buffer.size();
-                    buffer.clear();
+                if (batch.size() >= BATCH_SIZE) {
+                    saveAndClear(batch);
+                    totalSaved += batch.size();
+                    batch.clear();
                 }
             } catch (Exception e) {
                 log.warn("Error parsing trip row: {}", e.getMessage());
             }
         }
 
-        if (!buffer.isEmpty()) {
-            flushAndClear(buffer);
-            totalSaved += buffer.size();
+        if (!batch.isEmpty()) {
+            saveAndClear(batch);
+            totalSaved += batch.size();
         }
 
         log.info("Successfully imported {} trips for {}", totalSaved, cityName);
     }
 
-    private void flushAndClear(List<TripEntity> batch) {
+    private void saveAndClear(List<TripEntity> batch) {
         tripRepository.saveAll(batch);
-        entityManager.flush(); // push changes to the DB
+        entityManager.flush();
         entityManager.clear();
     }
 
