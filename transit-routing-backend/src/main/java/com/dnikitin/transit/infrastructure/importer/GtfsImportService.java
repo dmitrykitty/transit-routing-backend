@@ -69,19 +69,23 @@ public class GtfsImportService {
         Path tempDir = Files.createTempDirectory("gtfs_import_" + sourceId + "_");
         Map<String, Path> extractedFiles = new HashMap<>();
 
-        try (InputStream in = restTemplate.getForObject(url, InputStream.class);
-             ZipInputStream zis = new ZipInputStream(Objects.requireNonNull(in))) {
-
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                String fileName = entry.getName();
-                if (processorsMap.containsKey(fileName)) {
-                    Path tempFile = tempDir.resolve(fileName);
-                    Files.copy(zis, tempFile);
-                    extractedFiles.put(fileName, tempFile);
+        try {
+            restTemplate.execute(url, org.springframework.http.HttpMethod.GET, null, response -> {
+                try (ZipInputStream zis = new ZipInputStream(response.getBody())) {
+                    ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        String fileName = entry.getName();
+                        if (processorsMap.containsKey(fileName)) {
+                            Path tempFile = tempDir.resolve(fileName);
+                            // StandardCopyOption.REPLACE_EXISTING zapobiega błędom przy nadpisywaniu
+                            Files.copy(zis, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            extractedFiles.put(fileName, tempFile);
+                        }
+                        zis.closeEntry();
+                    }
                 }
-                zis.closeEntry();
-            }
+                return null;
+            });
 
             for (String fileName : IMPORT_ORDER) {
                 Path file = extractedFiles.get(fileName);

@@ -63,6 +63,8 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
                     saveAndClear(batch);
                     totalSaved += batch.size();
                     batch.clear();
+
+                    log.info("Partition import: imported {} stop_times", totalSaved);
                 }
             } catch (Exception e) {
                 skipped++;

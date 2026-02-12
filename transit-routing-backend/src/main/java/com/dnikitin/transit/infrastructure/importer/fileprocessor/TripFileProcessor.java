@@ -2,7 +2,6 @@ package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
 import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
 import com.dnikitin.transit.infrastructure.repository.RouteJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarJpaRepository;
@@ -102,7 +101,11 @@ public class TripFileProcessor implements GtfsFileProcessor{
     }
     private TripEntity mapRowToEntity(String[] row, RouteEntity route, ServiceCalendarEntity calendar, String cityName) {
         String blockId = row[6];
-        String shift = blockFileProcessor.getShiftByBlockId(blockId, cityName);
+        String shift = null;
+
+        if (blockId != null && !blockId.isBlank()) {
+            shift = blockFileProcessor.getShiftByBlockId(blockId, cityName);
+        }
 
         return TripEntity.builder()
                 .tripIdExternal(row[0])

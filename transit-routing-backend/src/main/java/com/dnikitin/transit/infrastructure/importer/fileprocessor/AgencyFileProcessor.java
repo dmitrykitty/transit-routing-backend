@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -20,15 +22,33 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
 
     @Override
     public void process(InputStream inputStream, String cityName, String source) {
-        log.info("Processing agency.txt for city: {}", cityName);
-        CsvParser parser = createCsvParser();
+        log.info("Processing agency.txt for city: {} (Source: {})", cityName, source);
 
+        Set<String> existingAgencyIds = agencyRepository.findAllByCity(cityName).stream()
+                .map(AgencyEntity::getAgencyIdExternal)
+                .collect(Collectors.toSet());
+
+        CsvParser parser = createCsvParser();
         List<AgencyEntity> batch = new ArrayList<>();
-        parser.iterate(inputStream).forEach(row ->
-                batch.add(mapToEntity(row, cityName))
-        );
-        agencyRepository.saveAll(batch);
-        log.info("Imported {} agencies for {}", batch.size(), cityName);
+
+        for (String[] row : parser.iterate(inputStream)) {
+            String agencyExtId = row[0];
+
+            if (existingAgencyIds.contains(agencyExtId)) {
+                log.debug("Agency {} already exists for city {}, skipping", agencyExtId, cityName);
+                continue;
+            }
+
+            batch.add(mapToEntity(row, cityName));
+            existingAgencyIds.add(agencyExtId);
+        }
+
+        if (!batch.isEmpty()) {
+            agencyRepository.saveAll(batch);
+            log.info("Imported {} agencies for {}", batch.size(), cityName);
+        } else {
+            log.info("No new agencies to import for {}", cityName);
+        }
     }
 
     @Override

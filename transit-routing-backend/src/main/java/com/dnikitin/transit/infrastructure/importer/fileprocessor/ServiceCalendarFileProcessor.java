@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -25,16 +27,31 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
     public void process(InputStream inputStream, String cityName, String source) {
         log.info("Processing calendar.txt for city: {} (Source: {})", cityName, source);
 
+        Set<String> existingServiceIds = calendarRepository.findAllByCity(cityName).stream()
+                .map(ServiceCalendarEntity::getServiceIdExternal)
+                .collect(Collectors.toSet());
+
         CsvParser parser = createCsvParser();
         List<ServiceCalendarEntity> batch = new ArrayList<>();
 
-        parser.iterate(inputStream).forEach(row ->
-                batch.add(mapToEntity(row, cityName))
-        );
+        for (String[] row : parser.iterate(inputStream)) {
+            String serviceExtId = row[0];
 
-        calendarRepository.saveAll(batch);
 
-        log.info("Imported {} service calendars for {}", batch.size(), cityName);
+            if (existingServiceIds.contains(serviceExtId)) {
+                continue;
+            }
+
+            batch.add(mapToEntity(row, cityName));
+            existingServiceIds.add(serviceExtId);
+        }
+
+        if (!batch.isEmpty()) {
+            calendarRepository.saveAll(batch);
+            log.info("Imported {} new service calendars for {}", batch.size(), cityName);
+        } else {
+            log.info("No new service calendars to import for {}", cityName);
+        }
     }
 
     @Override

@@ -44,6 +44,8 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
                     saveAndFlush(batch);
                     totalSaved += batch.size();
                     batch.clear();
+
+                    log.info("Partition import: imported {} shape_files", totalSaved);
                 }
             } catch (Exception e) {
                 log.warn("Skipping malformed shape point row: {}", (Object) row);

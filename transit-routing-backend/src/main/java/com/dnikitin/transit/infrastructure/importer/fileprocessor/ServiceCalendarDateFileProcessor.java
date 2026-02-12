@@ -30,10 +30,8 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
         parser.iterate(inputStream).forEach(row ->
                     batch.add(mapToEntity(row, cityName))
         );
-
         calendarDateRepository.saveAll(batch);
 
-        calendarDateRepository.saveAll(batch);
         log.info("Imported {} service calendar exceptions for {}", batch.size(), cityName);
     }
 
