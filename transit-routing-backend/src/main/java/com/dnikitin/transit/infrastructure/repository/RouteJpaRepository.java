@@ -8,9 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface RouteJpaRepository extends JpaRepository<RouteEntity, Long> {
-    List<RouteEntity> findAllByCity(String route_city);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM RouteEntity r WHERE r.city = :cityName")
-    void deleteRouteByCityBulk(String cityName);
+    @Query("DELETE FROM RouteEntity r WHERE r.city = :city")
+    void deleteRouteByCityBulk(String city);
+
+    List<RouteEntity> findAllByCity(String city);
 }

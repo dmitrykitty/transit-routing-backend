@@ -6,9 +6,13 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface DataImportMetadataJpaRepository extends JpaRepository<DataImportMetadataEntity, String> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM DataImportMetadataEntity dim WHERE dim.city = :cityName")
-    void deleteMetaDataByCityBulk(String cityName);
+    @Query("DELETE FROM DataImportMetadataEntity dim WHERE dim.city = :city")
+    void deleteMetaDataByCityBulk(String city);
+
+    List<DataImportMetadataEntity> findAllByCity(String city);
 }
