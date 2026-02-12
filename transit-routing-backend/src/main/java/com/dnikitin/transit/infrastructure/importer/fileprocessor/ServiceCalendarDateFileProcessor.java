@@ -22,13 +22,13 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
     private final ServiceCalendarDateJpaRepository calendarDateRepository;
 
     @Override
-    public void process(InputStream inputStream, String cityName) {
-        log.info("Processing calendar_dates.txt for city: {}", cityName);
+    public void process(InputStream inputStream, String cityName, String source) {
+        log.info("Processing calendar_dates.txt for city: {} (Source: {})", cityName,  source);
 
         CsvParser parser = createCsvParser();
         List<ServiceCalendarDateEntity> batch = new ArrayList<>();
         parser.iterate(inputStream).forEach(row ->
-                    batch.add(mapToEntity(row))
+                    batch.add(mapToEntity(row, cityName))
         );
 
         calendarDateRepository.saveAll(batch);
@@ -46,15 +46,17 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        calendarDateRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up calendar dates for city: {}", cityName);
+        calendarDateRepository.deleteServiceCalendarDateByCityBulk(cityName);
     }
 
-    private ServiceCalendarDateEntity mapToEntity(String[] row) {
+    private ServiceCalendarDateEntity mapToEntity(String[] row, String cityName) {
         return ServiceCalendarDateEntity.builder()
                 .serviceIdExternal(row[0])
                 .date(LocalDate.parse(row[1], GTFS_DATE_FORMATTER))
                 .exceptionType(Integer.parseInt(row[2]))
+                .city(cityName)
                 .build();
     }
 }

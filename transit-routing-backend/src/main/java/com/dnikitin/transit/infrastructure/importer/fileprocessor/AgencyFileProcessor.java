@@ -19,13 +19,13 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
     private final AgencyJpaRepository agencyRepository;
 
     @Override
-    public void process(InputStream inputStream, String cityName) {
+    public void process(InputStream inputStream, String cityName, String source) {
         log.info("Processing agency.txt for city: {}", cityName);
         CsvParser parser = createCsvParser();
 
         List<AgencyEntity> batch = new ArrayList<>();
         parser.iterate(inputStream).forEach(row ->
-                batch.add(mapToEntity(row))
+                batch.add(mapToEntity(row, cityName))
         );
         agencyRepository.saveAll(batch);
         log.info("Imported {} agencies for {}", batch.size(), cityName);
@@ -42,15 +42,17 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        agencyRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up agencies for city: {}", cityName);
+        agencyRepository.deleteAgencyByCityBulk(cityName);
     }
 
-    private AgencyEntity mapToEntity(String[] row) {
+    private AgencyEntity mapToEntity(String[] row, String cityName) {
         return AgencyEntity.builder()
                 .agencyIdExternal(row[0])
                 .name(row[1])
                 .url(row[2])
+                .city(cityName)
                 .timezone(row[3])
                 .lang(blankToNull(row[4]))
                 .phone(blankToNull(row[5]))

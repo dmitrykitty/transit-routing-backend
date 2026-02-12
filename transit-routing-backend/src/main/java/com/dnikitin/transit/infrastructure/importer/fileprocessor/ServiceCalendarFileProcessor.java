@@ -22,14 +22,14 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
     private final ServiceCalendarJpaRepository calendarRepository;
 
     @Override
-    public void process(InputStream inputStream, String cityName) {
-        log.info("Processing calendar.txt for city: {}", cityName);
+    public void process(InputStream inputStream, String cityName, String source) {
+        log.info("Processing calendar.txt for city: {} (Source: {})", cityName, source);
 
         CsvParser parser = createCsvParser();
         List<ServiceCalendarEntity> batch = new ArrayList<>();
 
         parser.iterate(inputStream).forEach(row ->
-                batch.add(mapToEntity(row))
+                batch.add(mapToEntity(row, cityName))
         );
 
         log.info("Imported {} service calendars for {}", batch.size(), cityName);
@@ -46,11 +46,12 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
     }
 
     @Override
-    public void clear() {
-        calendarRepository.deleteAllInBatch();
+    public void clear(String cityName) {
+        log.info("Cleaning up calendar for city: {}", cityName);
+        calendarRepository.deleteServiceCalendarByCityBulk(cityName);
     }
 
-    private ServiceCalendarEntity mapToEntity(String[] row){
+    private ServiceCalendarEntity mapToEntity(String[] row, String cityName) {
         return ServiceCalendarEntity.builder()
                 .serviceIdExternal(row[0])
                 .monday(parseBooleanFlag(row[1]))
@@ -62,6 +63,7 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
                 .sunday(parseBooleanFlag(row[7]))
                 .startDate(LocalDate.parse(row[8], GTFS_DATE_FORMATTER))
                 .endDate(LocalDate.parse(row[9], GTFS_DATE_FORMATTER))
+                .city(cityName)
                 .build();
     }
 
