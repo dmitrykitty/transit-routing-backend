@@ -2,6 +2,7 @@ package com.dnikitin.transit.infrastructure.importer;
 
 import com.dnikitin.transit.infrastructure.importer.fileprocessor.GtfsFileProcessor;
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
+import com.dnikitin.transit.infrastructure.repository.RouteStopJpaRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class GtfsImportService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final Map<String, GtfsFileProcessor> processorsMap;
     private final List<GtfsFileProcessor> processorList;
+    private final RouteStopJpaRepository  routeStopRepository;
 
     private static final List<String> IMPORT_ORDER = List.of(
             "agency.txt",
@@ -37,10 +39,11 @@ public class GtfsImportService {
             "stop_times.txt"
     );
 
-    public GtfsImportService(List<GtfsFileProcessor> processors) {
+    public GtfsImportService(List<GtfsFileProcessor> processors,  RouteStopJpaRepository routeStopRepository) {
         this.processorList = processors;
         this.processorsMap = processors.stream()
                 .collect(Collectors.toMap(GtfsFileProcessor::getName, Function.identity()));
+        this.routeStopRepository = routeStopRepository;
     }
 
     @Transactional
@@ -57,6 +60,8 @@ public class GtfsImportService {
                 log.info("Downloading and processing bundle: {} from {}", sourceId, url);
                 processZipBundle(url, city, sourceId);
             }
+            log.info("Materializing RouteStop view for city: {}", city.getName());
+            routeStopRepository.insertRouteStopByCity(city.getId());
 
             log.info("Full update for {} completed successfully.", city.getName());
         } catch (Exception e) {
@@ -116,6 +121,9 @@ public class GtfsImportService {
 
     private void clearCityData(CityEntity city) {
         log.warn("Clearing database for city: {} using processor priorities", city.getName());
+
+        log.info("Bulk deleting route_stop entries for city: {}", city.getName());
+        routeStopRepository.deleteRouteStopByCityBulk(city);
         processorList.stream()
                 .sorted(Comparator.comparingInt(GtfsFileProcessor::getDeletionPriority).reversed())
                 .forEach(processor -> {
