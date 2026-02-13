@@ -12,7 +12,10 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -26,14 +29,39 @@ public class ServiceCalendarDateFileProcessor implements GtfsFileProcessor {
     public void process(InputStream inputStream, CityEntity city, String source) {
         log.info("Processing calendar_dates.txt for city: {} (Source: {})", city.getName(),  source);
 
+        Set<String> existingExceptions = calendarDateRepository.findAllByCity(city).stream()
+                .map(this::createCompositeKey)
+                .collect(Collectors.toSet());
+
         CsvParser parser = createCsvParser();
         List<ServiceCalendarDateEntity> batch = new ArrayList<>();
-        parser.iterate(inputStream).forEach(row ->
-                    batch.add(mapToEntity(row, city))
-        );
-        calendarDateRepository.saveAll(batch);
 
-        log.info("Imported {} service calendar exceptions for {}", batch.size(), city.getName());
+        for (String[] row : parser.iterate(inputStream)) {
+            // creating key for current row
+            String serviceId = row[0];
+            String dateStr = row[1];
+            String typeStr = row[2];
+            String currentKey = serviceId + "-" + dateStr + "-" + typeStr;
+
+            if (existingExceptions.contains(currentKey)) {
+                continue;
+            }
+
+            batch.add(mapToEntity(row, city));
+            existingExceptions.add(currentKey);
+        }
+
+        if (!batch.isEmpty()) {
+            calendarDateRepository.saveAll(batch);
+            log.info("Imported {} new service calendar exceptions for {}", batch.size(), city.getName());
+        } else {
+            log.info("No new service calendar exceptions to import for {}", city.getName());
+        }
+    }
+
+    private String createCompositeKey(ServiceCalendarDateEntity entity) {
+        String dateFormatted = entity.getDate().format(DateTimeFormatter.BASIC_ISO_DATE);
+        return entity.getServiceIdExternal() + "-" + dateFormatted + "-" + entity.getExceptionType();
     }
 
     @Override
