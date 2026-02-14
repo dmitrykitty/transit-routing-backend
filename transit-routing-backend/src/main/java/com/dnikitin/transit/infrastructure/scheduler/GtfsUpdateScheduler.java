@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -43,61 +44,46 @@ public class GtfsUpdateScheduler {
 
     private void processCityUpdate(CityEntity city, Map<String, String> sources) {
         log.info("Checking update status for city: {}", city.getName());
+
+        Map<String, String> newHeaders = new HashMap<>();
         boolean cityRequiresUpdate = false;
 
         for (Map.Entry<String, String> entry : sources.entrySet()) {
             String sourceId = entry.getKey();
             String url = entry.getValue();
 
-            if (isUpdateRequired(sourceId, url, city)) {
+            String newHeader = getNewHeaderIfChanged(sourceId, url);
+
+            if (newHeader != null) {
                 log.info("Change detected in source: {} for city: {}", sourceId, city.getName());
                 cityRequiresUpdate = true;
+                newHeaders.put(sourceId, newHeader);
             }
         }
 
         if (cityRequiresUpdate) {
             log.info("Triggering full re-import for city: {} due to source changes.", city.getName());
-            importService.performFullCityUpdate(city, sources);
-
-            updateMetadataTimestamps(sources);
+            importService.performFullCityUpdate(city, sources, newHeaders);
         } else {
             log.info("All sources for {} are up-to-date.", city.getName());
         }
     }
 
-    private boolean isUpdateRequired(String sourceId, String url, CityEntity city) {
+    private String getNewHeaderIfChanged(String sourceId, String url) {
         try {
             HttpHeaders headers = restTemplate.headForHeaders(url);
-            String remoteLastModified = headers.getFirst("Last-Modified");
+            String remoteHeader = headers.getFirst("Last-Modified");
 
-            if (remoteLastModified == null) {
-                log.warn("Source {} did not return Last-Modified header. Forcing check.", sourceId);
-                return true;
-            }
+            if (remoteHeader == null) return "FORCE_UPDATE"; // brak nagłówka = zawsze importuj
 
-            var metadata = metadataRepository.findById(sourceId)
-                    .orElseGet(() -> new DataImportMetadataEntity(sourceId, city, null, ""));
+            String localHeader = metadataRepository.findById(sourceId)
+                    .map(DataImportMetadataEntity::getLastModifiedHeader)
+                    .orElse("");
 
-            boolean hasChanged = !remoteLastModified.equals(metadata.getLastModifiedHeader());
-
-            if (hasChanged) {
-                metadata.setLastModifiedHeader(remoteLastModified);
-                metadataRepository.save(metadata);
-            }
-
-            return hasChanged;
+            return remoteHeader.equals(localHeader) ? null : remoteHeader;
         } catch (Exception e) {
-            log.error("Could not check headers for {}: {}", sourceId, e.getMessage());
-            return false;
-        }
-    }
-
-    private void updateMetadataTimestamps(Map<String, String> sources) {
-        for (String sourceId : sources.keySet()) {
-            metadataRepository.findById(sourceId).ifPresent(m -> {
-                m.setLastImportTimestamp(LocalDateTime.now());
-                metadataRepository.save(m);
-            });
+            log.error("Check failed for {}: {}", sourceId, e.getMessage());
+            return null;
         }
     }
 

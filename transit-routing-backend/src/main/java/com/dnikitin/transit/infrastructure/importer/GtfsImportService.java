@@ -2,6 +2,8 @@ package com.dnikitin.transit.infrastructure.importer;
 
 import com.dnikitin.transit.infrastructure.importer.fileprocessor.GtfsFileProcessor;
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.DataImportMetadataEntity;
+import com.dnikitin.transit.infrastructure.repository.DataImportMetadataJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.RouteStopJpaRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -22,6 +25,7 @@ import java.util.zip.ZipInputStream;
 @Slf4j
 public class GtfsImportService {
 
+    private final DataImportMetadataJpaRepository metadataRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final Map<String, GtfsFileProcessor> processorsMap;
     private final List<GtfsFileProcessor> processorList;
@@ -39,19 +43,22 @@ public class GtfsImportService {
             "stop_times.txt"
     );
 
-    public GtfsImportService(List<GtfsFileProcessor> processors,  RouteStopJpaRepository routeStopRepository) {
+    public GtfsImportService(List<GtfsFileProcessor> processors,
+                             RouteStopJpaRepository routeStopRepository,
+                             DataImportMetadataJpaRepository metadataRepository) {
         this.processorList = processors;
         this.processorsMap = processors.stream()
                 .collect(Collectors.toMap(GtfsFileProcessor::getName, Function.identity()));
         this.routeStopRepository = routeStopRepository;
+        this.metadataRepository = metadataRepository;
     }
 
     @Transactional
-    public void performFullCityUpdate(CityEntity city, Map<String, String> sourceUrls) {
+    public void performFullCityUpdate(CityEntity city, Map<String, String> sourceUrls, Map<String, String> newHeaders) {
         log.info("Starting orchestrated atomic update for city: {}", city.getName());
-        clearCityData(city);
 
         try {
+            clearCityData(city);
 
             for (Map.Entry<String, String> entry : sourceUrls.entrySet()) {
                 String sourceId = entry.getKey(); //"KRK_A"
@@ -63,11 +70,26 @@ public class GtfsImportService {
             log.info("Materializing RouteStop view for city: {}", city.getName());
             routeStopRepository.insertRouteStopByCity(city.getId());
 
+            updateMetadataRecords(city, newHeaders);
+
             log.info("Full update for {} completed successfully.", city.getName());
         } catch (Exception e) {
             log.error("Critical error during city update: {}", e.getMessage(), e);
             throw new RuntimeException("City update failed - rolling back transaction", e);
         }
+    }
+
+    private void updateMetadataRecords(CityEntity city, Map<String, String> newHeaders) {
+        newHeaders.forEach((sourceId, headerValue) -> {
+            DataImportMetadataEntity metadata = metadataRepository.findById(sourceId)
+                    .orElseGet(() -> new DataImportMetadataEntity(sourceId, city, null, ""));
+
+            metadata.setLastModifiedHeader(headerValue);
+            metadata.setLastImportTimestamp(LocalDateTime.now());
+
+            metadataRepository.save(metadata);
+            log.info("Metadata updated for source: {}", sourceId);
+        });
     }
 
     private void processZipBundle(String url, CityEntity city, String sourceId) throws IOException {
