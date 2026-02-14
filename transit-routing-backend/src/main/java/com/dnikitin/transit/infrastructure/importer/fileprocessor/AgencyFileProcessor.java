@@ -77,7 +77,6 @@ public class AgencyFileProcessor implements GtfsFileProcessor {
                 .timezone(row[3])
                 .lang(blankToNull(row[4]))
                 .phone(blankToNull(row[5]))
-                .fareUrl(blankToNull(row[6]))
                 .email(blankToNull(row[7]))
                 .build();
     }

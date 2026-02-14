@@ -1,5 +1,6 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
+import com.dnikitin.transit.infrastructure.importer.util.ParsingUtil;
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarJpaRepository;
@@ -74,20 +75,16 @@ public class ServiceCalendarFileProcessor implements GtfsFileProcessor {
     private ServiceCalendarEntity mapToEntity(String[] row, CityEntity city) {
         return ServiceCalendarEntity.builder()
                 .serviceIdExternal(row[0])
-                .monday(parseBooleanFlag(row[1]))
-                .tuesday(parseBooleanFlag(row[2]))
-                .wednesday(parseBooleanFlag(row[3]))
-                .thursday(parseBooleanFlag(row[4]))
-                .friday(parseBooleanFlag(row[5]))
-                .saturday(parseBooleanFlag(row[6]))
-                .sunday(parseBooleanFlag(row[7]))
+                .monday(ParsingUtil.parseBoolean(row[1]))
+                .tuesday(ParsingUtil.parseBoolean(row[2]))
+                .wednesday(ParsingUtil.parseBoolean(row[3]))
+                .thursday(ParsingUtil.parseBoolean(row[4]))
+                .friday(ParsingUtil.parseBoolean(row[5]))
+                .saturday(ParsingUtil.parseBoolean(row[6]))
+                .sunday(ParsingUtil.parseBoolean(row[7]))
                 .startDate(LocalDate.parse(row[8], GTFS_DATE_FORMATTER))
                 .endDate(LocalDate.parse(row[9], GTFS_DATE_FORMATTER))
                 .city(city)
                 .build();
-    }
-
-    private boolean parseBooleanFlag(String value) {
-        return "1".equals(value);
     }
 }

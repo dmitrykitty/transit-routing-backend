@@ -1,15 +1,11 @@
 package com.dnikitin.transit.infrastructure.importer.fileprocessor;
 
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.ShapePointEntity;
 import com.dnikitin.transit.infrastructure.repository.ShapePointJpaRepository;
 import com.univocity.parsers.csv.CsvParser;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.PrecisionModel;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
@@ -22,43 +18,56 @@ import java.util.List;
 public class ShapeFileProcessor implements GtfsFileProcessor {
     private static final int BATCH_SIZE = 5000;
 
+    private final JdbcTemplate jdbcTemplate;
     private final ShapePointJpaRepository shapePointRepository;
-    private final EntityManager entityManager;
-    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+    private static final String INSERT_SHAPE_SQL = """
+            INSERT INTO shape_point (
+                shape_id_ext,
+                point_sequence,
+                city_id,
+                location
+            )
+            VALUES (?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326))
+            ON CONFLICT (shape_id_ext, point_sequence, city_id) DO NOTHING
+            """;
 
     @Override
     public void process(InputStream inputStream, CityEntity city, String source) {
         log.info("Processing shapes.txt for city: {} (Source: {})", city.getName(), source);
 
         CsvParser parser = createCsvParser();
-        List<ShapePointEntity> batch = new ArrayList<>(BATCH_SIZE);
+        List<Object[]> batch = new ArrayList<>(BATCH_SIZE);
         int totalSaved = 0;
 
         for (String[] row : parser.iterate(inputStream)) {
             try {
-                double lat = Double.parseDouble(row[1]);
-                double lon = Double.parseDouble(row[2]);
 
-                batch.add(mapToEntity(row, lat, lon, city));
+                batch.add(new Object[]{
+                        row[0],                                     // shape_id_external
+                        Integer.parseInt(row[3]),                   // sequence
+                        city.getId(),                               // city_id
+                        Double.parseDouble(row[2]),                 // x dla ST_MakePoint (longitude)
+                        Double.parseDouble(row[1])                  // y dla ST_MakePoint (latitude)
+                });
 
                 if (batch.size() >= BATCH_SIZE) {
-                    saveAndFlush(batch);
+                    jdbcTemplate.batchUpdate(INSERT_SHAPE_SQL, batch);
                     totalSaved += batch.size();
                     batch.clear();
-
-                    log.info("Partition import: imported {} shape_files", totalSaved);
+                    log.info("Progress: {} shape points imported", totalSaved);
                 }
             } catch (Exception e) {
-                log.warn("Skipping malformed shape point row: {}", (Object) row);
+                log.warn("Skipping malformed shape row: {}. Reason: {}", row, e.getMessage());
             }
         }
 
         if (!batch.isEmpty()) {
-            saveAndFlush(batch);
+            jdbcTemplate.batchUpdate(INSERT_SHAPE_SQL, batch);
             totalSaved += batch.size();
         }
 
-        log.info("Imported {} shape points for {} from {}", totalSaved, city.getName(), source);
+        log.info("Import finished. Total shape points for {}: {}", city.getName(), totalSaved);
     }
 
     @Override
@@ -77,30 +86,4 @@ public class ShapeFileProcessor implements GtfsFileProcessor {
         shapePointRepository.deleteShapePointByCityBulk(city);
     }
 
-    private ShapePointEntity mapToEntity(String[] row, double lat, double lon, CityEntity city) {
-        return ShapePointEntity.builder()
-                .shapeIdExternal(row[0])
-                .location(geometryFactory.createPoint(new Coordinate(lon, lat)))
-                .sequence(Integer.parseInt(row[3]))
-                .distTraveled(parseNullableDouble(row[4]))
-                .city(city)
-                .build();
-    }
-
-    private void saveAndFlush(List<ShapePointEntity> batch) {
-        shapePointRepository.saveAll(batch);
-        entityManager.flush();
-        entityManager.clear();
-    }
-
-    private Double parseNullableDouble(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return Double.parseDouble(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 }
