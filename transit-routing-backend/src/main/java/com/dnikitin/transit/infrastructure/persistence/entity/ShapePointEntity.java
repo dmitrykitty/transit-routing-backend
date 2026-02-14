@@ -37,6 +37,6 @@ public class ShapePointEntity {
     @Column(name = "point_sequence", nullable = false)
     private Integer sequence; // GTFS: shape_pt_sequence
 
-    @Column(name = "shape_dist_traveled")
-    private Double distTraveled; // GTFS: shape_dist_traveled
+//   @Column(name = "shape_dist_traveled")
+//    private Double distTraveled; // GTFS: shape_dist_traveled
 }

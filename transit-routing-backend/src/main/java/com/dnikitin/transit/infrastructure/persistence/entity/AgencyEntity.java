@@ -46,8 +46,8 @@ public class AgencyEntity {
     @Column(name = "agency_phone")
     private String phone; // GTFS: agency_phone
 
-    @Column(name = "agency_fare_url")
-    private String fareUrl; // GTFS: agency_fare_url
+//    @Column(name = "agency_fare_url")
+//    private String fareUrl; // GTFS: agency_fare_url
 
     @Column(name = "agency_email")
     private String email; // GTFS: agency_email

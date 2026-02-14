@@ -11,11 +11,17 @@ import java.time.LocalTime;
 @Entity
 @Table(
         name = "stop_time",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uq_stop_time_trip_sequence_city",
+                        columnNames = {"trip_id", "stop_sequence", "city_id"}
+                )
+        },
         indexes = {
                 @Index(name = "idx_stop_time_trip", columnList = "trip_id"),
                 @Index(name = "idx_stop_time_stop", columnList = "stop_id"),
                 @Index(name = "idx_stop_time_departure", columnList = "departure_time"),
-                @Index(name = "idx_stop_time_city", columnList = "city_id") // Kluczowe dla Bulk Delete
+                @Index(name = "idx_stop_time_city", columnList = "city_id")
         }
 )
 @Data
