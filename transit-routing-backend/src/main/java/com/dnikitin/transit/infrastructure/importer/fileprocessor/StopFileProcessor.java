@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -32,16 +34,24 @@ public class StopFileProcessor implements GtfsFileProcessor {
     public void process(InputStream inputStream, CityEntity city, String source) {
         log.info("Processing stops.txt for city: {} (Source: {})", city.getName(), source);
 
+        Set<String> existingStopIds = stopRepository.findAllByCity(city).stream()
+                .map(StopEntity::getStopIdExternal)
+                .collect(Collectors.toSet());
+
         CsvParser parser = createCsvParser();
 
         List<StopEntity> batch = new ArrayList<>(BATCH_SIZE);
         int totalSaved = 0;
 
         for (String[] row : parser.iterate(inputStream)) {
+            String stopExtId = row[0];
+            if (existingStopIds.contains(stopExtId)) {
+                continue;
+            }
             try {
                 StopEntity stop = mapRowToEntity(row, city);
-
                 batch.add(stop);
+                existingStopIds.add(stopExtId);
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndClear(batch);

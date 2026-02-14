@@ -14,8 +14,8 @@ import java.util.List;
         name = "route",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uq_route_city_external_id",
-                        columnNames = {"city_id", "route_id_ext"}
+                        name = "uq_route_city_external_id_type",
+                        columnNames = {"city_id", "route_id_ext", "vehicle_type"}
                 )
         },
         indexes = {

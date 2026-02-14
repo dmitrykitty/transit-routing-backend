@@ -4,6 +4,7 @@ import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.VehicleType;
 import com.dnikitin.transit.infrastructure.repository.RouteJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.TripJpaRepository;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class TripFileProcessor implements GtfsFileProcessor{
+public class TripFileProcessor implements GtfsFileProcessor {
 
     private final TripJpaRepository tripRepository;
     private final RouteJpaRepository routeRepository;
@@ -35,10 +36,11 @@ public class TripFileProcessor implements GtfsFileProcessor{
     @Override
     public void process(InputStream inputStream, CityEntity city, String source) {
         log.info("Processing trips.txt for city: {} (Source: {})", city.getName(), source);
+        VehicleType currentVehicleType = determineVehicleType(source);
 
         // Pre-load Routes and Calendars to RAM for O(1) lookup
-        Map<String, RouteEntity> routeMap = routeRepository.findAllByCity(city).stream()
-                .collect(Collectors.toMap(RouteEntity::getRouteIdExternal, r -> r));
+        Map<String, Long> routeIdMap = routeRepository.findAllByCityAndVehicleType(city, currentVehicleType).stream()
+                .collect(Collectors.toMap(RouteEntity::getRouteIdExternal, RouteEntity::getId));
 
         Map<String, ServiceCalendarEntity> calendarMap = calendarRepository.findAllByCity(city).stream()
                 .collect(Collectors.toMap(ServiceCalendarEntity::getServiceIdExternal, c -> c));
@@ -50,14 +52,14 @@ public class TripFileProcessor implements GtfsFileProcessor{
 
         for (String[] row : parser.iterate(inputStream)) {
             try {
-                RouteEntity route = routeMap.get(row[1]);
+                Long routeInternalId = routeIdMap.get(row[1]);
                 ServiceCalendarEntity calendar = calendarMap.get(row[2]);
 
-                if (route == null || calendar == null) {
+                if (routeInternalId == null || calendar == null) {
                     continue; // Skip malformed or missing dependencies
                 }
 
-                batch.add(mapRowToEntity(row, route, calendar, city));
+                batch.add(mapRowToEntity(row, routeInternalId, calendar, city));
 
                 if (batch.size() >= BATCH_SIZE) {
                     saveAndClear(batch);
@@ -100,7 +102,8 @@ public class TripFileProcessor implements GtfsFileProcessor{
         tripRepository.deleteTripByCityBulk(city);
 
     }
-    private TripEntity mapRowToEntity(String[] row, RouteEntity route, ServiceCalendarEntity calendar, CityEntity city) {
+
+    private TripEntity mapRowToEntity(String[] row, Long routeInternalId, ServiceCalendarEntity calendar, CityEntity city) {
         String blockId = row[6];
         String shift = null;
 
@@ -110,7 +113,7 @@ public class TripFileProcessor implements GtfsFileProcessor{
 
         return TripEntity.builder()
                 .tripIdExternal(row[0])
-                .route(route)
+                .route(entityManager.getReference(RouteEntity.class, routeInternalId))
                 .city(city)
                 .calendar(calendar)
                 .headsign(row[3])
@@ -128,6 +131,12 @@ public class TripFileProcessor implements GtfsFileProcessor{
 
     private Integer parseNullableIntOrDefault(String value) {
         return (value == null || value.isBlank()) ? 0 : Integer.parseInt(value);
+    }
+
+    private VehicleType determineVehicleType(String source) {
+        if (source.contains("_T")) return VehicleType.TRAM;
+        if (source.contains("_A") || source.contains("_M")) return VehicleType.BUS;
+        return VehicleType.BUS;
     }
 
 }

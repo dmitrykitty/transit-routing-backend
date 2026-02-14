@@ -2,6 +2,8 @@ package com.dnikitin.transit.infrastructure.repository;
 
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
+import com.dnikitin.transit.infrastructure.persistence.entity.VehicleType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,4 +16,6 @@ public interface RouteJpaRepository extends JpaRepository<RouteEntity, Long> {
     void deleteRouteByCityBulk(CityEntity city);
 
     List<RouteEntity> findAllByCity(CityEntity city);
+
+    List<RouteEntity> findAllByCityAndVehicleType(CityEntity city, VehicleType vehicleType);
 }
