@@ -1,8 +1,8 @@
 package com.dnikitin.transit.infrastructure.raptor;
 
-import com.dnikitin.transit.application.port.out.RaptorQueryPort;
-import com.dnikitin.transit.domain.model.raptor.Route;
-import com.dnikitin.transit.domain.model.raptor.Stop;
+import com.dnikitin.transit.application.port.out.RaptorRepositoryPort;
+import com.dnikitin.transit.domain.model.raptor.RouteRaptor;
+import com.dnikitin.transit.domain.model.raptor.StopRaptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -14,25 +14,24 @@ import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
-public class RedisRaptorAdapter implements RaptorQueryPort {
+public class RedisRaptorAdapter implements RaptorRepositoryPort {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-
     @Override
-    public Optional<Route> getRoute(Short cityId, String routeId) {
+    public Optional<RouteRaptor> getRoute(Short cityId, String routeId) {
         Object routeData = redisTemplate.opsForValue().get(getRouteKey(cityId, routeId));
-        return Optional.ofNullable((Route)routeData);
+        return Optional.ofNullable((RouteRaptor) routeData);
     }
 
     @Override
-    public Optional<Stop> getStop(Short cityId, Integer stopId) {
+    public Optional<StopRaptor> getStop(Short cityId, Integer stopId) {
         Object stopData = redisTemplate.opsForValue().get(getStopKey(cityId, stopId));
-        return Optional.ofNullable((Stop)stopData);
+        return Optional.ofNullable((StopRaptor) stopData);
     }
 
-
     @Override
+    @SuppressWarnings("unchecked")
     public Map<Integer, Long> getStopMapping(Short cityId) {
         Object stopMappingData = redisTemplate.opsForValue().get(getMappingKey(cityId));
 
@@ -44,19 +43,22 @@ public class RedisRaptorAdapter implements RaptorQueryPort {
     }
 
     @Override
-    public void saveRoute(Short cityId, Route route) {
-        redisTemplate.opsForValue().set(getRouteKey(cityId, String.valueOf(route.id())), route);
-
+    public void saveRoute(Short cityId, RouteRaptor routeRaptor) {
+        redisTemplate.opsForValue().set(getRouteKey(cityId, String.valueOf(routeRaptor.id())), routeRaptor);
     }
 
     @Override
-    public void saveStop(Short cityId, Stop stop) {
-        redisTemplate.opsForValue().set(getStopKey(cityId, stop.id()), stop);
+    public void saveStop(Short cityId, StopRaptor stopRaptor) {
+        redisTemplate.opsForValue().set(getStopKey(cityId, stopRaptor.id()), stopRaptor);
     }
 
     @Override
     public void saveStopMapping(Short cityId, Map<Integer, Long> mapping) {
         redisTemplate.opsForValue().set(getMappingKey(cityId), mapping);
+    }
+
+    @Override
+    public void markDataAvailable(Short cityId) {
         redisTemplate.opsForValue().set("raptor:city:" + cityId + ":status", true);
     }
 

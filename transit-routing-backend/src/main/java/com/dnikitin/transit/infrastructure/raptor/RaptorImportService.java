@@ -28,22 +28,26 @@ public class RaptorImportService {
     private final TripJpaRepository tripRepository;
     private final StopJpaRepository stopRepository;
     private final StopTimeJpaRepository stopTimeRepository;
-
     private final RaptorRepositoryPort raptorRepositoryPort;
 
     @Transactional(readOnly = true)
     public void importDataToRedis(CityEntity city) {
-        log.info("Starting RAPTOR data import for city '{}' (ID: {})...", city.getName(), city.getId());
+        Short cityId = city.getId();
+        log.info("Starting RAPTOR data import for city '{}' (ID: {})...", city.getName(), cityId);
 
-        raptorRepositoryPort.clearCityData(city.getId());
+        // 1. Czyścimy stare dane przed importem
+        raptorRepositoryPort.clearCityData(cityId);
 
+        // 2. Pobieramy dane z SQL (Upewnij się, że repozytoria używają FETCH JOIN)
         List<StopEntity> allStops = stopRepository.findAllByCity(city);
         List<TripEntity> allTrips = tripRepository.findAllByCity(city);
         List<StopTimeEntity> allStopTimes = stopTimeRepository.findAllByCity(city);
 
+        // 3. Grupowanie StopTimes po TripID dla szybkiego dostępu
         Map<Long, List<StopTimeEntity>> stopTimesByTripId = allStopTimes.stream()
                 .collect(Collectors.groupingBy(st -> st.getTrip().getId()));
 
+        // 4. Tworzenie mapowania ID: DB_LONG <-> RAPTOR_INT
         Map<Long, Integer> dbToRaptorId = new HashMap<>();
         Map<Integer, Long> raptorToDbId = new HashMap<>();
 
@@ -53,20 +57,20 @@ public class RaptorImportService {
             raptorToDbId.put(stopIndex, stop.getId());
             stopIndex++;
         }
-        raptorRepositoryPort.saveStopMapping(city.getId(), raptorToDbId);
+        raptorRepositoryPort.saveStopMapping(cityId, raptorToDbId);
 
+        // 5. Grupowanie Tripów w Trasy (Routes) na podstawie sekwencji przystanków
+        // W RAPTORze "Route" to zbiór Tripów, które mają dokładnie tę samą listę przystanków
         Map<List<Integer>, List<TripEntity>> routeGroups = new HashMap<>();
 
         for (TripEntity trip : allTrips) {
             List<StopTimeEntity> tripStopTimes = stopTimesByTripId.getOrDefault(trip.getId(), List.of());
-            if (tripStopTimes.isEmpty()) {
-                continue;
-            }
+            if (tripStopTimes.isEmpty()) continue;
 
             List<Integer> raptorStopPattern = tripStopTimes.stream()
                     .sorted(Comparator.comparingInt(StopTimeEntity::getStopSequence))
                     .map(st -> dbToRaptorId.get(st.getStop().getId()))
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (raptorStopPattern.contains(null)) {
                 log.warn("Trip {} contains unknown stops. Skipping.", trip.getId());
@@ -76,6 +80,7 @@ public class RaptorImportService {
             routeGroups.computeIfAbsent(raptorStopPattern, k -> new ArrayList<>()).add(trip);
         }
 
+        // 6. Tworzenie i zapisywanie RouteRaptor
         int routeIdCounter = 0;
         Map<Integer, List<Integer>> stopToRouteMap = new HashMap<>();
 
@@ -85,25 +90,28 @@ public class RaptorImportService {
 
             int raptorRouteId = routeIdCounter++;
             RouteRaptor route = createRaptorRoute(raptorRouteId, stopIds, trips, stopTimesByTripId);
-            raptorRepositoryPort.saveRoute(city.getId(), route);
+            raptorRepositoryPort.saveRoute(cityId, route);
 
+            // Rejestrujemy, które trasy przejeżdżają przez dany przystanek
             for (Integer raptorStopId : stopIds) {
                 stopToRouteMap.computeIfAbsent(raptorStopId, k -> new ArrayList<>()).add(raptorRouteId);
             }
         }
 
+        // 7. Tworzenie i zapisywanie StopRaptor
         for (StopEntity stopEntity : allStops) {
             Integer raptorId = dbToRaptorId.get(stopEntity.getId());
             StopRaptor raptorStop = new StopRaptor(
                     raptorId,
                     stopToRouteMap.getOrDefault(raptorId, List.of()),
-                    List.<TransferRaptor>of()
+                    Collections.emptyList() // Transfery piesze zostawiamy na później
             );
-            raptorRepositoryPort.saveStop(city.getId(), raptorStop);
+            raptorRepositoryPort.saveStop(cityId, raptorStop);
         }
 
-        raptorRepositoryPort.markDataAvailable(city.getId());
-        log.info("Imported {} stops and {} routes for city '{}'.", allStops.size(), routeIdCounter, city.getName());
+        // 8. Finalizacja
+        raptorRepositoryPort.markDataAvailable(cityId);
+        log.info("Import finished. City: {}, Stops: {}, Routes: {}", city.getName(), allStops.size(), routeIdCounter);
     }
 
     private RouteRaptor createRaptorRoute(
@@ -112,8 +120,7 @@ public class RaptorImportService {
             List<TripEntity> trips,
             Map<Long, List<StopTimeEntity>> stopTimesByTripId
     ) {
-        int[] routeStopIds = stopIds.stream().mapToInt(i -> i).toArray();
-
+        int[] routeStopIds = stopIds.stream().mapToInt(Integer::intValue).toArray();
         List<TripRaptor> raptorTrips = new ArrayList<>();
 
         for (TripEntity entity : trips) {
@@ -121,27 +128,19 @@ public class RaptorImportService {
                     .sorted(Comparator.comparingInt(StopTimeEntity::getStopSequence))
                     .toList();
 
-            if (sortedTimes.isEmpty()) {
-                continue;
-            }
-
             int[] arrivalTimes = sortedTimes.stream()
                     .mapToInt(st -> st.getArrivalTime().toSecondOfDay())
                     .toArray();
             int[] departureTimes = sortedTimes.stream()
-                    .mapToInt(this::convertToSeconds)
+                    .mapToInt(st -> st.getDepartureTime().toSecondOfDay())
                     .toArray();
 
             raptorTrips.add(new TripRaptor(arrivalTimes, departureTimes));
         }
 
+        // Kluczowe dla RAPTORa: Tripy wewnątrz trasy muszą być posortowane według czasu odjazdu
         raptorTrips.sort(Comparator.comparingInt(t -> t.departureTimes()[0]));
+
         return new RouteRaptor(id, routeStopIds, raptorTrips);
     }
-
-    private int convertToSeconds(StopTimeEntity st) {
-        return st.getDepartureTime().toSecondOfDay();
-    }
-
-
 }
