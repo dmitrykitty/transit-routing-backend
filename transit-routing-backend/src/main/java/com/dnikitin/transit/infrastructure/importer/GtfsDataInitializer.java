@@ -6,12 +6,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Order(value = 1)
 public class GtfsDataInitializer {
 
     private final CityJpaRepository cityRepository;
