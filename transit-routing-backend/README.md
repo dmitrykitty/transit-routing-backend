@@ -1,6 +1,6 @@
 # Transit Routing & Booking Backend (In progress)
 
-Backend project for public transport route planning and ticket booking, focusing on:
+Backend project for public transport routeRaptor planning and ticket booking, focusing on:
 
 * **High-performance time-dependent routing** (graph model, RAPTOR/CSA integration)
 * **Segment-based seat availability** and booking logic
@@ -63,7 +63,7 @@ To resolve foreign keys (e.g., mapping a GTFS `route_id` to the internal `BigInt
 
 #### 4. Native PostGIS Integration
 
-Spatial data (stop locations and shape points) is generated directly within the SQL statement using:
+Spatial data (stopRaptor locations and shape points) is generated directly within the SQL statement using:
 `ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)`
 This avoids the overhead of JTS (Java Topology Suite) serialization in the application layer and leverages the database's native spatial engine.
 

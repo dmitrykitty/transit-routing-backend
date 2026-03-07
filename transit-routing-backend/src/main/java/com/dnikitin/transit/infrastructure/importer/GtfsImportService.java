@@ -39,7 +39,7 @@ public class GtfsImportService {
             "routes.txt",
             "shapes.txt",
             "stops.txt",
-            "tripRaptors.txt",
+            "trips.txt",
             "stop_times.txt"
     );
 

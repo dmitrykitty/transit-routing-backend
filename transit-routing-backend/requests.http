@@ -2,4 +2,16 @@
 GET http://localhost:8080/api/v1/health
 
 ###
+GET http://localhost:8080/api/v1/cities
+
+###
 GET http://localhost:8080/api/stops
+
+###
+GET http://localhost:8080/api/routes/1
+
+###
+GET http://localhost:8080/api/routes/1?type=BUS
+
+###
+GET http://localhost:8080/api/routes/1/139?type=BUS
