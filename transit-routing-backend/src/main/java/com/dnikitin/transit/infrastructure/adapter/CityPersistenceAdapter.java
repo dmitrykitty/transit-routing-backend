@@ -13,8 +13,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CityPersistenceAdapter implements CityQueryPort {
 
-    CityJpaRepository cityRepository;
-    CityEntityMapper cityEntityMapper;
+    private final CityJpaRepository cityRepository;
+    private final CityEntityMapper cityEntityMapper;
 
 
     @Override

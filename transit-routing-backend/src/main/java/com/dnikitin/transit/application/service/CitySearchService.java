@@ -12,7 +12,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CitySearchService implements GetCitiesUseCase {
 
-    CityQueryPort cityQueryPort;
+    private final CityQueryPort cityQueryPort;
 
     public List<City> getAllCities() {
         return cityQueryPort.findAllCities();
