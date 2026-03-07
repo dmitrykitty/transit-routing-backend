@@ -25,8 +25,8 @@ public class RouteController {
     @GetMapping("/{cityId}")
     public ResponseEntity<List<RouteSummaryResponse>> getRoutes(
             @PathVariable Short cityId,
-            @RequestParam(value = "type", required = false) VehicleType type) {
-
+            @RequestParam(value = "type", required = false) VehicleType type
+    ) {
         List<RouteSummaryResponse> response = (
                 type == null
                         ? getRoutesUseCase.getRoutesForCity(cityId)
@@ -42,9 +42,11 @@ public class RouteController {
     public ResponseEntity<RouteDetailsResponse> getRouteByCityAndRouteNumber(
             @PathVariable Short cityId,
             @PathVariable String number,
-            @RequestParam("type") VehicleType type) {
+            @RequestParam("type") VehicleType type
+    ) {
         return getRoutesUseCase.getRouteByCityVehicleTypeAndRouteNumber(cityId, type, number)
-                .map(route -> ResponseEntity.ok(routeMapper.toDetailsResponse(route)))
-                .orElse(ResponseEntity.notFound().build());
+                .map(routeMapper::toDetailsResponse)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

@@ -11,21 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 
 @Mapper(componentModel = "spring")
-public abstract class RouteEntityMapper {
-
-    @Autowired
-    protected StopEntityMapper stopEntityMapper;
-
-    @Mapping(target = "stops", expression = "java(mapStops(entity.getStops()))")
-    public abstract Route toRoute(RouteEntity entity);
-
-    public abstract RouteEntity toRouteEntity(Route route);
-
-    protected List<Stop> mapStops(List<RouteStopEntity> routeStops) {
-        if (routeStops == null) return List.of();
-        return routeStops.stream()
-                .sorted((a, b) -> Integer.compare(a.getStopSequence(), b.getStopSequence()))
-                .map(rs -> stopEntityMapper.toStop(rs.getStop()))
-                .toList();
-    }
+public interface RouteEntityMapper {
+    Route toRouteSummary(RouteEntity entity);
 }
