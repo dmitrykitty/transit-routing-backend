@@ -28,7 +28,8 @@ public class GtfsDataInitializer {
             gtfsUpdateScheduler.checkAndSyncAllCities();
             log.info("Initial multi-city seed completed.");
         } else {
-            log.info("Database already contains city data. Skipping initial seed.");
+            log.info("Database contains data. Checking for updates via Scheduler...");
+            gtfsUpdateScheduler.checkAndSyncAllCities();
         }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RouteJpaRepository extends JpaRepository<RouteEntity, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -17,5 +18,12 @@ public interface RouteJpaRepository extends JpaRepository<RouteEntity, Long> {
 
     List<RouteEntity> findAllByCity(CityEntity city);
 
-    List<RouteEntity> findAllByCityAndVehicleType(CityEntity city, VehicleType vehicleType);
+    List<RouteEntity> findAllByCityAndVehicleType(
+            CityEntity city,
+            VehicleType vehicleType);
+
+    Optional<RouteEntity> findByCityAndVehicleTypeAndRouteNumber(
+            CityEntity city,
+            VehicleType type,
+            String routeNumber);
 }

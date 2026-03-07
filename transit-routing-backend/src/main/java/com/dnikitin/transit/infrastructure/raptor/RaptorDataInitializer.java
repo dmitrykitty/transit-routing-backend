@@ -1,6 +1,6 @@
 package com.dnikitin.transit.infrastructure.raptor;
 
-import com.dnikitin.transit.application.port.out.RaptorQueryPort;
+import com.dnikitin.transit.application.port.out.RaptorRepositoryPort;
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.repository.CityJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import java.util.List;
 @Order(2)
 public class RaptorDataInitializer {
 
-    private final RaptorQueryPort raptorRepository;
+    private final RaptorRepositoryPort raptorRepository;
     private final RaptorImportService raptorImportService;
     private final CityJpaRepository cityRepository;
 
