@@ -2,11 +2,8 @@ package com.dnikitin.transit.domain.model.raptor;
 
 import java.io.Serializable;
 
-public record TripRaptor(
-        int id,
-        int[] arrivalTimes,
-        int[] departureTimes
+public record RouteAtStopRaptor(
+        int routeId,
+        int stopIndexInRoute
 ) implements Serializable {
 }
-
-
