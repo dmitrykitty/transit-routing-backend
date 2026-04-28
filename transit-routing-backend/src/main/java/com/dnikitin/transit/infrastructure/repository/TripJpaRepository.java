@@ -17,6 +17,7 @@ public interface TripJpaRepository extends JpaRepository<TripEntity,Long> {
     @Query("DELETE FROM TripEntity t WHERE t.city = :city")
     void deleteTripByCityBulk(CityEntity city);
 
+    @EntityGraph(attributePaths = {"route", "calendar"})
     List<TripEntity> findAllByCity(CityEntity city);
 
     @EntityGraph(attributePaths = {"route"})

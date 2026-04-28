@@ -2,8 +2,7 @@ package com.dnikitin.transit.application.port.out;
 
 import com.dnikitin.transit.domain.model.Route;
 import com.dnikitin.transit.domain.model.RouteDetails;
-import com.dnikitin.transit.domain.model.RouteSummary;
-import com.dnikitin.transit.infrastructure.persistence.entity.VehicleType;
+import com.dnikitin.transit.domain.model.VehicleType;
 
 import java.util.List;
 import java.util.Optional;
