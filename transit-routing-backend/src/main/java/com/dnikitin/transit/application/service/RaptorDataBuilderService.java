@@ -2,56 +2,73 @@ package com.dnikitin.transit.application.service;
 
 import com.dnikitin.transit.application.port.in.BuildRaptorDataUseCase;
 import com.dnikitin.transit.application.port.out.RaptorDataQueryPort;
+import com.dnikitin.transit.application.port.out.raptor.RaptorStopData;
+import com.dnikitin.transit.application.port.out.raptor.RaptorStopTimeData;
+import com.dnikitin.transit.application.port.out.raptor.RaptorTransferData;
+import com.dnikitin.transit.application.port.out.raptor.RaptorTripData;
 import com.dnikitin.transit.domain.model.raptor.*;
-import com.dnikitin.transit.infrastructure.persistence.entity.StopEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.StopTimeEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
 public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
 
     private final RaptorDataQueryPort raptorDataQueryPort;
+    private final RaptorRoutingProperties raptorRoutingProperties;
+    private final Map<CacheKey, RaptorDataSet> cache = new ConcurrentHashMap<>();
 
     @Override
     public RaptorDataSet buildForCity(Short cityId) {
-        List<StopEntity> stopEntities = raptorDataQueryPort.findStopsByCityId(cityId);
-        List<TripEntity> tripEntities = raptorDataQueryPort.findTripsByCityId(cityId);
-        List<StopTimeEntity> stopTimeEntities = raptorDataQueryPort.findStopTimesByCityId(cityId);
+        return buildForCity(cityId, null);
+    }
 
-        Map<Long, List<StopTimeEntity>> stopTimesByTripId = groupStopTimesByTrip(stopTimeEntities);
-        Map<PatternKey, List<TripEntity>> tripsByPattern = groupTripsByPattern(tripEntities, stopTimesByTripId);
+    @Override
+    public RaptorDataSet buildForCity(Short cityId, LocalDate serviceDate) {
+        return cache.computeIfAbsent(new CacheKey(cityId, serviceDate), ignored -> buildUncached(cityId, serviceDate));
+    }
+
+    @Override
+    public void invalidateCity(Short cityId) {
+        cache.keySet().removeIf(key -> key.cityId().equals(cityId));
+    }
+
+    private RaptorDataSet buildUncached(Short cityId, LocalDate serviceDate) {
+        List<RaptorStopData> stops = raptorDataQueryPort.findStopsByCityId(cityId);
+        List<RaptorTripData> trips = raptorDataQueryPort.findTripsByCityId(cityId, serviceDate);
+        List<RaptorTransferData> transfers = loadTransfers(cityId);
+
+        Map<PatternKey, List<RaptorTripData>> tripsByPattern = groupTripsByPattern(trips);
 
         Map<Integer, RouteRaptor> routesById = new LinkedHashMap<>();
         Map<Integer, List<RouteAtStopRaptor>> routesAtStops = new HashMap<>();
 
         int nextRouteRaptorId = 0;
 
-        for (Map.Entry<PatternKey, List<TripEntity>> entry : tripsByPattern.entrySet()) {
-            PatternKey patternKey = entry.getKey();
-            List<TripEntity> trips = entry.getValue();
+        for (Map.Entry<PatternKey, List<RaptorTripData>> entry : tripsByPattern.entrySet()) {
+            List<RaptorTripData> routeTrips = entry.getValue();
 
-            TripEntity representativeTrip = trips.getFirst();
-            List<StopTimeEntity> representativeStopTimes = stopTimesByTripId.get(representativeTrip.getId());
+            RaptorTripData representativeTrip = routeTrips.getFirst();
+            List<RaptorStopTimeData> representativeStopTimes = representativeTrip.stopTimes();
 
             int[] stopIds = representativeStopTimes.stream()
-                    .mapToInt(st -> Math.toIntExact(st.getStop().getId()))
+                    .mapToInt(st -> Math.toIntExact(st.stopId()))
                     .toArray();
 
-            List<TripRaptor> tripRaptors = trips.stream()
-                    .map(trip -> toTripRaptor(trip, stopTimesByTripId.get(trip.getId())))
+            List<TripRaptor> tripRaptors = routeTrips.stream()
+                    .map(this::toTripRaptor)
                     .sorted(Comparator.comparingInt(t -> t.departureTimes()[0]))
                     .toList();
 
             RouteRaptor routeRaptor = new RouteRaptor(
                     nextRouteRaptorId,
-                    representativeTrip.getRoute().getId(),
-                    representativeTrip.getDirectionId(),
+                    representativeTrip.sourceRouteId(),
+                    representativeTrip.directionId(),
                     resolveHeadsign(representativeTrip, representativeStopTimes),
                     stopIds,
                     tripRaptors
@@ -69,16 +86,17 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
         }
 
         Map<Integer, StopRaptor> stopsById = new LinkedHashMap<>();
-        for (StopEntity stopEntity : stopEntities) {
-            int stopId = Math.toIntExact(stopEntity.getId());
+        Map<Long, List<TransferRaptor>> transfersByStopId = groupTransfersByStop(transfers);
+        for (RaptorStopData stop : stops) {
+            int stopId = Math.toIntExact(stop.id());
 
             stopsById.put(
                     stopId,
                     new StopRaptor(
                             stopId,
-                            stopEntity.getName(),
+                            stop.name(),
                             routesAtStops.getOrDefault(stopId, List.of()),
-                            List.of()
+                            transfersByStopId.getOrDefault(stop.id(), List.of())
                     )
             );
         }
@@ -90,40 +108,23 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
         );
     }
 
-    private Map<Long, List<StopTimeEntity>> groupStopTimesByTrip(List<StopTimeEntity> stopTimeEntities) {
-        Map<Long, List<StopTimeEntity>> result = new LinkedHashMap<>();
+    private Map<PatternKey, List<RaptorTripData>> groupTripsByPattern(List<RaptorTripData> trips) {
+        Map<PatternKey, List<RaptorTripData>> result = new LinkedHashMap<>();
 
-        for (StopTimeEntity stopTime : stopTimeEntities) {
-            result.computeIfAbsent(stopTime.getTrip().getId(), ignored -> new ArrayList<>())
-                    .add(stopTime);
-        }
-
-        result.values().forEach(list ->
-                list.sort(Comparator.comparingInt(StopTimeEntity::getStopSequence)));
-
-        return result;
-    }
-
-    private Map<PatternKey, List<TripEntity>> groupTripsByPattern(
-            List<TripEntity> tripEntities,
-            Map<Long, List<StopTimeEntity>> stopTimesByTripId
-    ) {
-        Map<PatternKey, List<TripEntity>> result = new LinkedHashMap<>();
-
-        for (TripEntity trip : tripEntities) {
-            List<StopTimeEntity> stopTimes = stopTimesByTripId.get(trip.getId());
+        for (RaptorTripData trip : trips) {
+            List<RaptorStopTimeData> stopTimes = trip.stopTimes();
             if (stopTimes == null || stopTimes.isEmpty()) {
                 continue;
             }
 
             List<Long> stopSequencePattern = stopTimes.stream()
-                    .map(st -> st.getStop().getId())
+                    .map(RaptorStopTimeData::stopId)
                     .toList();
 
             PatternKey key = new PatternKey(
-                    trip.getRoute().getId(),
-                    trip.getDirectionId(),
-                    normalizeHeadsign(trip.getHeadsign()),
+                    trip.sourceRouteId(),
+                    trip.directionId(),
+                    normalizeHeadsign(trip.headsign()),
                     stopSequencePattern
             );
 
@@ -133,17 +134,17 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
         return result;
     }
 
-    private TripRaptor toTripRaptor(TripEntity trip, List<StopTimeEntity> stopTimes) {
-        int[] arrivalTimes = stopTimes.stream()
-                .mapToInt(st -> toSeconds(st.getArrivalTime()))
+    private TripRaptor toTripRaptor(RaptorTripData trip) {
+        int[] arrivalTimes = trip.stopTimes().stream()
+                .mapToInt(st -> toSeconds(st.arrivalTime()))
                 .toArray();
 
-        int[] departureTimes = stopTimes.stream()
-                .mapToInt(st -> toSeconds(st.getDepartureTime()))
+        int[] departureTimes = trip.stopTimes().stream()
+                .mapToInt(st -> toSeconds(st.departureTime()))
                 .toArray();
 
         return new TripRaptor(
-                Math.toIntExact(trip.getId()),
+                Math.toIntExact(trip.id()),
                 arrivalTimes,
                 departureTimes
         );
@@ -153,17 +154,45 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
         return time.toSecondOfDay();
     }
 
-    private String resolveHeadsign(TripEntity trip, List<StopTimeEntity> stopTimes) {
-        if (trip.getHeadsign() != null && !trip.getHeadsign().isBlank()) {
-            return trip.getHeadsign();
+    private String resolveHeadsign(RaptorTripData trip, List<RaptorStopTimeData> stopTimes) {
+        if (trip.headsign() != null && !trip.headsign().isBlank()) {
+            return trip.headsign();
         }
 
-        StopTimeEntity last = stopTimes.get(stopTimes.size() - 1);
-        return last.getStop().getName();
+        RaptorStopTimeData last = stopTimes.get(stopTimes.size() - 1);
+        return last.stopName();
     }
 
     private String normalizeHeadsign(String headsign) {
         return headsign == null ? "" : headsign.trim();
+    }
+
+    private List<RaptorTransferData> loadTransfers(Short cityId) {
+        RaptorRoutingProperties.Transfer transfer = raptorRoutingProperties.getTransfer();
+        if (!transfer.isEnabled()) {
+            return List.of();
+        }
+
+        return raptorDataQueryPort.findTransfersByCityId(
+                cityId,
+                transfer.getRadiusMeters(),
+                transfer.getWalkingSpeedMetersPerSecond(),
+                transfer.getMaxDurationSeconds()
+        );
+    }
+
+    private Map<Long, List<TransferRaptor>> groupTransfersByStop(List<RaptorTransferData> transfers) {
+        Map<Long, List<TransferRaptor>> result = new HashMap<>();
+
+        for (RaptorTransferData transfer : transfers) {
+            result.computeIfAbsent(transfer.fromStopId(), ignored -> new ArrayList<>())
+                    .add(new TransferRaptor(
+                            Math.toIntExact(transfer.toStopId()),
+                            transfer.durationInSeconds()
+                    ));
+        }
+
+        return result;
     }
 
     private record PatternKey(
@@ -171,5 +200,10 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
             Integer directionId,
             String headsign,
             List<Long> stopIds
+    ) {}
+
+    private record CacheKey(
+            Short cityId,
+            LocalDate serviceDate
     ) {}
 }
