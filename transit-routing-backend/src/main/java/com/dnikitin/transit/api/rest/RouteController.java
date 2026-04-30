@@ -4,7 +4,7 @@ import com.dnikitin.transit.api.dto.response.RouteDetailsResponse;
 import com.dnikitin.transit.api.dto.response.RouteSummaryResponse;
 import com.dnikitin.transit.api.mapper.RouteDtoMapper;
 import com.dnikitin.transit.application.port.in.GetRoutesUseCase;
-import com.dnikitin.transit.infrastructure.persistence.entity.VehicleType;
+import com.dnikitin.transit.domain.model.VehicleType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/routes")
+@RequestMapping({"/api/routes", "/api/v1/routes"})
 @RequiredArgsConstructor
 public class RouteController {
     private final GetRoutesUseCase getRoutesUseCase;
@@ -25,8 +25,8 @@ public class RouteController {
     @GetMapping("/{cityId}")
     public ResponseEntity<List<RouteSummaryResponse>> getRoutes(
             @PathVariable Short cityId,
-            @RequestParam(value = "type", required = false) VehicleType type) {
-
+            @RequestParam(value = "type", required = false) VehicleType type
+    ) {
         List<RouteSummaryResponse> response = (
                 type == null
                         ? getRoutesUseCase.getRoutesForCity(cityId)
@@ -42,9 +42,11 @@ public class RouteController {
     public ResponseEntity<RouteDetailsResponse> getRouteByCityAndRouteNumber(
             @PathVariable Short cityId,
             @PathVariable String number,
-            @RequestParam("type") VehicleType type) {
+            @RequestParam("type") VehicleType type
+    ) {
         return getRoutesUseCase.getRouteByCityVehicleTypeAndRouteNumber(cityId, type, number)
-                .map(route -> ResponseEntity.ok(routeMapper.toDetailsResponse(route)))
-                .orElse(ResponseEntity.notFound().build());
+                .map(routeMapper::toDetailsResponse)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

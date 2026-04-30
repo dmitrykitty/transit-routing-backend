@@ -1,6 +1,19 @@
 name: dnikitin
 
 services:
+  app:
+    build: .
+    profiles:
+      - app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/transit?reWriteBatchedInserts=true
+      SPRING_DATA_REDIS_HOST: redis
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+
   postgres:
     image: postgis/postgis:18-3.6-alpine
     environment:

@@ -5,7 +5,8 @@ import java.util.List;
 
 public record StopRaptor(
         int id,
-        List<Integer> routeIds,
-        List<TransferRaptor> transferRaptors
+        String name,
+        List<RouteAtStopRaptor> routes,
+        List<TransferRaptor> transfers
 ) implements Serializable {
 }

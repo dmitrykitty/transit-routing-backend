@@ -13,6 +13,7 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     properties:
@@ -29,6 +30,17 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+raptor:
+  transfer:
+    enabled: true
+    radius-meters: 150.0
+    walking-speed-meters-per-second: 1.4
+    max-duration-seconds: 300
 
 logging:
   level:
