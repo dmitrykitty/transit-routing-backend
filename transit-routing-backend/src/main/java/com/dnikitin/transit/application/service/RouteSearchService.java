@@ -4,7 +4,7 @@ import com.dnikitin.transit.application.port.in.GetRoutesUseCase;
 import com.dnikitin.transit.application.port.out.RouteQueryPort;
 import com.dnikitin.transit.domain.model.Route;
 import com.dnikitin.transit.domain.model.RouteDetails;
-import com.dnikitin.transit.infrastructure.persistence.entity.VehicleType;
+import com.dnikitin.transit.domain.model.VehicleType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

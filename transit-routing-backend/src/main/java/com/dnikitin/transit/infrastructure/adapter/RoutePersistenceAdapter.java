@@ -5,6 +5,7 @@ import com.dnikitin.transit.domain.model.Route;
 import com.dnikitin.transit.domain.model.RouteDetails;
 import com.dnikitin.transit.domain.model.RouteDirection;
 import com.dnikitin.transit.domain.model.Stop;
+import com.dnikitin.transit.domain.model.VehicleType;
 import com.dnikitin.transit.infrastructure.persistence.entity.*;
 import com.dnikitin.transit.infrastructure.persistence.mapper.RouteEntityMapper;
 import com.dnikitin.transit.infrastructure.persistence.mapper.StopEntityMapper;
@@ -40,7 +41,7 @@ public class RoutePersistenceAdapter implements RouteQueryPort {
     public List<Route> findRoutesByCityIdAndVehicleType(Short cityId, VehicleType vehicleType) {
         CityEntity city = getCityOrThrow(cityId);
 
-        return routeRepository.findAllByCityAndVehicleType(city, vehicleType).stream()
+        return routeRepository.findAllByCityAndVehicleType(city, toEntityVehicleType(vehicleType)).stream()
                 .map(routeEntityMapper::toRouteSummary)
                 .toList();
     }
@@ -53,7 +54,7 @@ public class RoutePersistenceAdapter implements RouteQueryPort {
     ) {
         CityEntity city = getCityOrThrow(cityId);
 
-        return routeRepository.findByCityAndVehicleTypeAndRouteNumber(city, type, routeNumber)
+        return routeRepository.findByCityAndVehicleTypeAndRouteNumber(city, toEntityVehicleType(type), routeNumber)
                 .map(this::toRouteDetails);
     }
 
@@ -137,5 +138,9 @@ public class RoutePersistenceAdapter implements RouteQueryPort {
 
     private Integer normalizeDirectionId(Integer directionId) {
         return directionId == null ? -1 : directionId;
+    }
+
+    private com.dnikitin.transit.infrastructure.persistence.entity.VehicleType toEntityVehicleType(VehicleType vehicleType) {
+        return com.dnikitin.transit.infrastructure.persistence.entity.VehicleType.valueOf(vehicleType.name());
     }
 }

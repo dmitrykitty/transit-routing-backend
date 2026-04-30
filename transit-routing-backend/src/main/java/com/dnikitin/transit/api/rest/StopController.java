@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/stops")
+@RequestMapping({"/api/stops", "/api/v1/stops"})
 public class StopController {
 
     private final StopSearchService service;
