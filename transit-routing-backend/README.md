@@ -1,84 +1,228 @@
-# Transit Routing & Booking Backend (In progress)
+# Transit Routing Backend
 
-Backend project for public transport routeRaptor planning and ticket booking, focusing on:
+Java/Spring backend for GTFS ingestion, transit catalog APIs, and RAPTOR-based public transport journey planning.
 
-* **High-performance time-dependent routing** (graph model, RAPTOR/CSA integration)
-* **Segment-based seat availability** and booking logic
-* **High-throughput GTFS data ingestion**
-* **Clean Architecture** and strict testability standards
-
-## Tech Stack
-
-* **Language/Framework**: Java 25, Spring Boot 4
-* **Database**: PostgreSQL + PostGIS (Spatial indexing)
-* **Deployment**: Docker Compose
-* **Testing**: Testcontainers, JUnit 5
-* **Utilities**: MapStruct, OpenAPI (springdoc), Univocity Parsers
+The project is finished as a routing MVP. Booking, seat inventory, and provider aggregation from the original sprint idea are intentionally kept as future modules.
 
 ## Architecture
 
-The project follows **Clean / Hexagonal Architecture** to ensure the core routing logic remains independent of infrastructure details:
+The codebase follows a hexagonal structure:
 
-* `domain` – Core domain models (Trip, Stop, Route) and pure business rules.
-* `application` – Use cases, orchestration, and ports (Input/Output interfaces).
-* `infrastructure` – Persistence adapters (JDBC/JPA), GTFS file processors, and external integrations.
-* `api` – REST controllers, DTOs, and request/response mapping.
-
----
-
-## Data Ingestion & ETL Optimization
-
-The system is designed to handle massive GTFS (General Transit Feed Specification) datasets for large metropolitan areas. Given the high volume of data—reaching millions of records in tables such as `stop_times` and `shape_points`—the import process has been optimized to ensure high throughput and a minimal memory footprint.
-
-### Technical Challenges
-
-* **Transaction Poisoning**: Standard JPA `saveAll()` methods trigger `UniqueConstraintViolation` exceptions when encountering duplicate records (e.g., shared physical stops between bus and tram bundles). In PostgreSQL, this aborts the entire transaction, making it impossible to continue without a rollback.
-* **Memory Management (OOM)**: Hibernate’s First-Level Cache (Persistence Context) tracks every entity being persisted. Loading millions of `StopTime` entities into the heap leads to `OutOfMemoryError` and excessive Garbage Collection overhead.
-* **Data Collisions**: GTFS feeds often overlap. The same `stop_id` or `service_id` can appear in multiple ZIP packages (e.g., `KRK_A` and `KRK_T`).
-
-### Engineering Decisions
-
-#### 1. JDBC Batch Processing (vs. JPA Batching)
-
-While Spring Data JPA is used for standard domain operations, the ingestion layer was moved to **Spring JDBC Batch Updates**.
-
-* **Stateless Persistence**: Unlike Hibernate, `JdbcTemplate` does not cache entities in memory. Data is streamed from the CSV parser and sent to the database in configurable batches (e.g., 5,000 records).
-* **Performance**: This bypasses the overhead of entity lifecycle management, dirty checking, and unnecessary `SELECT` calls before `INSERT`.
-
-#### 2. PostgreSQL `ON CONFLICT` (Upsert Logic)
-
-To handle data collisions from multiple ZIP bundles without "poisoning" the transaction, the system utilizes native PostgreSQL upsert logic:
-
-```sql
-INSERT INTO stop_time (...) VALUES (...)
-ON CONFLICT (trip_id_ext, stop_sequence, city_id) DO NOTHING;
-
+```text
+api
+  REST controllers, DTO responses, exception handling
+application
+  use cases, orchestration, cache boundary, read-model ports
+domain
+  pure routing model and RAPTOR algorithm
+infrastructure
+  JPA/PostGIS persistence, GTFS import, scheduler, configuration
 ```
 
-* **Idempotency**: This ensures that duplicate records are silently ignored at the database level, allowing the import to proceed uninterrupted even if bundles overlap.
+Key rule: RAPTOR routing logic stays in `domain.service.RaptorRouter`; data loading and caching stay in `application`; JPA entities stay inside `infrastructure`.
 
-#### 3. Lightweight ID Mapping
+## Current Status
 
-To resolve foreign keys (e.g., mapping a GTFS `route_id` to the internal `BigInt` primary key), the system avoids loading full JPA entities. Instead, it uses lightweight `Map<String, Long>` structures pre-loaded via targeted SQL queries. This maintains  lookup time with a fraction of the memory cost.
+Implemented:
 
-#### 4. Native PostGIS Integration
+- GTFS import pipeline with JDBC-heavy bulk loading for large feeds
+- city, stop, and route catalog APIs
+- RAPTOR dataset builder from imported trips/stops/stop_times
+- service-date filtering using GTFS `calendar.txt` and `calendar_dates.txt`
+- in-memory per-city/per-date RAPTOR dataset cache
+- cache invalidation after GTFS re-import
+- transfer generation from stop proximity using PostGIS
+- RAPTOR journey endpoint with optional `serviceDate`
+- OpenAPI/Swagger UI
+- Docker Compose for PostgreSQL/PostGIS, Redis, and optional app container
+- test profile isolated from startup GTFS seeding
 
-Spatial data (stopRaptor locations and shape points) is generated directly within the SQL statement using:
-`ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)`
-This avoids the overhead of JTS (Java Topology Suite) serialization in the application layer and leverages the database's native spatial engine.
+Not implemented yet:
 
-### Performance Benchmarks
+- Redis-backed distributed RAPTOR cache
+- fare, accessibility, and frequency-based routing
+- production deployment automation
 
-The optimized ETL process demonstrates significant efficiency:
+## RAPTOR Routing
 
-* **Throughput**: High-volume tables (`shape_points`, `stop_times`) reach ingestion speeds of **7,000 - 8,000 records/s**.
-* **Scalability**: A typical dataset containing **900,000 records** is fully processed and persisted in approximately **1.5 - 2 minutes**.
-* **Memory Stability**: Heap usage remains constant regardless of the total record count due to batch-clearing and streaming.
+The implementation is based on:
 
----
+- Daniel Delling, Thomas Pajor, Renato F. Werneck, *Round-Based Public Transit Routing*
+- https://www.microsoft.com/en-us/research/publication/round-based-public-transit-routing/
 
-## Run locally
+Implemented behavior:
+
+- rounds by number of boardings
+- marked-stop based route collection
+- earliest catchable trip scan within each route
+- transfer propagation within a round
+- Pareto-style journey outputs across rounds
+- generated walking transfers between nearby stops
+- optional date filtering before building the routing dataset
+
+Current limitations:
+
+- GTFS times above 24h are normalized by the importer to local time
+- cache is process-local and rebuilt after app restart
+- transfer generation depends on PostGIS, so H2 tests keep it disabled
+- routing is earliest-arrival oriented, not full multi-criteria optimization
+
+## API
+
+### Health
+
+```http
+GET /api/v1/health
+```
+
+### Cities
+
+```http
+GET /api/v1/cities
+```
+
+### Stops
+
+```http
+GET /api/v1/stops
+```
+
+Legacy path still works:
+
+```http
+GET /api/stops
+```
+
+### Routes
+
+```http
+GET /api/v1/routes/{cityId}
+GET /api/v1/routes/{cityId}?type=TRAM
+GET /api/v1/routes/{cityId}/{number}?type=TRAM
+```
+
+Legacy `/api/routes/...` paths still work.
+
+### RAPTOR Dataset Inspection
+
+```http
+GET /api/v1/raptor/cities/{cityId}/dataset?routeLimit=10&stopLimit=10
+```
+
+Response includes stop count, route count, generated transfer count, and compact route/stop summaries.
+
+### RAPTOR Journey Search
+
+```http
+GET /api/v1/raptor/cities/{cityId}/journeys?sourceStopId=101&targetStopId=233&departureTime=08:15
+```
+
+With date-aware GTFS calendar filtering:
+
+```http
+GET /api/v1/raptor/cities/{cityId}/journeys?sourceStopId=101&targetStopId=233&departureTime=08:15&serviceDate=2026-04-28
+```
+
+Required params:
+
+- `sourceStopId`
+- `targetStopId`
+- `departureTime`, ISO local time such as `08:15` or `08:15:00`
+
+Optional params:
+
+- `serviceDate`, ISO local date such as `2026-04-28`
+
+### OpenAPI
+
+After starting the app:
+
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
+
+## Configuration
+
+Default runtime dependencies:
+
+- PostgreSQL/PostGIS on `localhost:5434`
+- Redis on `localhost:6379`
+
+Important settings:
+
+```yaml
+raptor:
+  transfer:
+    enabled: true
+    radius-meters: 150.0
+    walking-speed-meters-per-second: 1.4
+    max-duration-seconds: 300
+```
+
+`spring.jpa.open-in-view=false` is set so database access stays inside service/repository boundaries.
+
+## Running Locally
+
+Start infrastructure:
+
 ```bash
-mvn clean package
-mvn spring-boot:run
+docker compose up -d postgres redis
 ```
+
+Run tests:
+
+```bash
+./mvnw test
+```
+
+On Windows:
+
+```powershell
+.\mvnw.cmd test
+```
+
+Run the application locally:
+
+```bash
+./mvnw spring-boot:run
+```
+
+Run with Docker Compose app container:
+
+```bash
+docker compose --profile app up --build
+```
+
+## Test Profile
+
+Tests use:
+
+- H2 in-memory database
+- `gtfs.initializer.enabled=false`
+- generated transfers disabled
+- SpringDoc endpoints disabled
+
+This keeps automated tests fast and independent from live GTFS downloads or PostGIS.
+
+## GTFS Import Notes
+
+The import path is optimized around large feeds:
+
+- JDBC batch inserts instead of entity-heavy JPA persistence for hot paths
+- `ON CONFLICT DO NOTHING` semantics for overlapping bundles
+- lightweight lookup maps for foreign-key resolution
+- direct PostGIS point creation in SQL
+- scheduler checks `Last-Modified` headers and triggers full city refreshes
+
+After a city refresh, the RAPTOR dataset cache for that city is invalidated.
+
+## Future Booking Engine
+
+The original project plan included booking and seat inventory. That should be added as a separate vertical slice after the routing MVP:
+
+- reservation and seat availability domain models
+- optimistic locking for double-booking protection
+- booking REST endpoint
+- concurrency tests
+- provider aggregation/mock provider adapter
+
+This keeps the current backend focused and demoable as a transit routing service while leaving a clear path toward the broader booking product.
