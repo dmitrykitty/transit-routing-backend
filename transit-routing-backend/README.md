@@ -252,7 +252,8 @@ validity of the downloaded feeds.
 
 ### Results
 
-Run of 2026-10-25 (`run-20261025-224545`) on an Intel Core i7-10750H (6 cores / 12 threads), 31.8 GB RAM,
+Run of 2026-10-25 (`run-20261025-224545`, application sources as committed in `7031c07`) on an Intel Core
+i7-10750H (6 cores / 12 threads), 31.8 GB RAM,
 Windows 11 Pro, Oracle JDK 25 (25+37, G1), PostgreSQL 18 / PostGIS 3.6 in Docker on the same machine.
 
 | Network (Krakow, feeds published 22-23 Oct 2026) | |
