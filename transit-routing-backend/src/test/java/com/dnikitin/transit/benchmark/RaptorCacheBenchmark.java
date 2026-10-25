@@ -76,7 +76,7 @@ public final class RaptorCacheBenchmark {
 
         start = System.nanoTime();
         int trips = port.findTripsByCityId(cityId, date).size();
-        System.out.printf("findTripsByCityId(%s): %d ms (%d trips; loads all stop_times of the city)%n",
+        System.out.printf("findTripsByCityId(%s): %d ms (%d trips)%n",
                 date, (System.nanoTime() - start) / 1_000_000, trips);
 
         start = System.nanoTime();
