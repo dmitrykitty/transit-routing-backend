@@ -6,12 +6,14 @@ import com.dnikitin.transit.application.port.out.raptor.RaptorStopTimeData;
 import com.dnikitin.transit.application.port.out.raptor.RaptorTransferData;
 import com.dnikitin.transit.application.port.out.raptor.RaptorTripData;
 import com.dnikitin.transit.domain.model.raptor.RaptorDataSet;
+import com.dnikitin.transit.domain.model.raptor.RouteRaptor;
+import com.dnikitin.transit.domain.model.raptor.TripRaptor;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.*;
@@ -71,6 +73,32 @@ class RaptorDataBuilderServiceTest {
         assertEquals(90, dataSet.stopsById().get(1).transfers().getFirst().durationInSeconds());
     }
 
+    @Test
+    void keepsTripTimesAfterMidnightOfServiceDay() {
+        RaptorDataQueryPort queryPort = mock(RaptorDataQueryPort.class);
+        RaptorDataBuilderService service = new RaptorDataBuilderService(queryPort, properties());
+
+        // 23:50 -> 24:10 and a later trip 24:05 -> 24:25 (GTFS times past midnight of the service day).
+        RaptorTripData lateTrip = new RaptorTripData(11, 100, 0, "Bravo", List.of(
+                new RaptorStopTimeData(1, "Alpha", 86_700, 86_700, 1),
+                new RaptorStopTimeData(2, "Bravo", 87_900, 87_900, 2)
+        ));
+        RaptorTripData crossingTrip = new RaptorTripData(10, 100, 0, "Bravo", List.of(
+                new RaptorStopTimeData(1, "Alpha", 85_800, 85_800, 1),
+                new RaptorStopTimeData(2, "Bravo", 87_000, 87_000, 2)
+        ));
+        when(queryPort.findStopsByCityId((short) 1)).thenReturn(stops());
+        when(queryPort.findTripsByCityId((short) 1, null)).thenReturn(List.of(lateTrip, crossingTrip));
+        when(queryPort.findTransfersByCityId((short) 1, 150.0, 1.4, 300)).thenReturn(List.of());
+
+        RouteRaptor route = service.buildForCity((short) 1).routesById().values().iterator().next();
+
+        List<TripRaptor> trips = route.trips();
+        assertEquals(List.of(10, 11), trips.stream().map(TripRaptor::id).toList());
+        assertArrayEquals(new int[]{85_800, 87_000}, trips.get(0).arrivalTimes());
+        assertArrayEquals(new int[]{86_700, 87_900}, trips.get(1).departureTimes());
+    }
+
     private RaptorRoutingProperties properties() {
         return new RaptorRoutingProperties();
     }
@@ -89,8 +117,8 @@ class RaptorDataBuilderServiceTest {
                 0,
                 "Bravo",
                 List.of(
-                        new RaptorStopTimeData(1, "Alpha", LocalTime.of(8, 0), LocalTime.of(8, 0), 1),
-                        new RaptorStopTimeData(2, "Bravo", LocalTime.of(8, 10), LocalTime.of(8, 10), 2)
+                        new RaptorStopTimeData(1, "Alpha", 8 * 3600, 8 * 3600, 1),
+                        new RaptorStopTimeData(2, "Bravo", 8 * 3600 + 600, 8 * 3600 + 600, 2)
                 )
         );
     }

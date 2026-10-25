@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -136,11 +135,11 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
 
     private TripRaptor toTripRaptor(RaptorTripData trip) {
         int[] arrivalTimes = trip.stopTimes().stream()
-                .mapToInt(st -> toSeconds(st.arrivalTime()))
+                .mapToInt(RaptorStopTimeData::arrivalSeconds)
                 .toArray();
 
         int[] departureTimes = trip.stopTimes().stream()
-                .mapToInt(st -> toSeconds(st.departureTime()))
+                .mapToInt(RaptorStopTimeData::departureSeconds)
                 .toArray();
 
         return new TripRaptor(
@@ -148,10 +147,6 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
                 arrivalTimes,
                 departureTimes
         );
-    }
-
-    private int toSeconds(LocalTime time) {
-        return time.toSecondOfDay();
     }
 
     private String resolveHeadsign(RaptorTripData trip, List<RaptorStopTimeData> stopTimes) {

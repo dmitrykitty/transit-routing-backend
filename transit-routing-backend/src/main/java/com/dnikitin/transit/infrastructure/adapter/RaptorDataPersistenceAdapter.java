@@ -119,8 +119,8 @@ public class RaptorDataPersistenceAdapter implements RaptorDataQueryPort {
         return new RaptorStopTimeData(
                 stopTime.getStop().getId(),
                 stopTime.getStop().getName(),
-                stopTime.getArrivalTime(),
-                stopTime.getDepartureTime(),
+                stopTime.getArrivalSeconds(),
+                stopTime.getDepartureSeconds(),
                 stopTime.getStopSequence()
         );
     }

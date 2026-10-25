@@ -2,8 +2,6 @@ package com.dnikitin.transit.infrastructure.importer.util;
 
 import lombok.experimental.UtilityClass;
 
-import java.time.LocalTime;
-
 @UtilityClass
 public class ParsingUtil {
     public static Integer parseNullableInt(String value) {
@@ -46,9 +44,21 @@ public class ParsingUtil {
         return (value == null || value.isBlank()) ? null : value;
     }
 
-    public static LocalTime parseGtfsTime(String value) {
+    /**
+     * GTFS times count from midnight of the service day and may exceed 24:00 (e.g. "25:10:00"),
+     * so they are kept as seconds since that midnight instead of a time of day.
+     */
+    public static int parseGtfsSeconds(String value) {
         String[] parts = value.trim().split(":");
-        int hour = Integer.parseInt(parts[0]) % 24; // Obsługa GTFS 24h+
-        return LocalTime.of(hour, Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("Invalid GTFS time: " + value);
+        }
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+        int seconds = Integer.parseInt(parts[2]);
+        if (hours < 0 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) {
+            throw new IllegalArgumentException("Invalid GTFS time: " + value);
+        }
+        return hours * 3600 + minutes * 60 + seconds;
     }
 }

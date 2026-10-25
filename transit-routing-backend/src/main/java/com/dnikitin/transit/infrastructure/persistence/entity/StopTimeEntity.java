@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalTime;
-
 @Entity
 @Table(
         name = "stop_time",
@@ -20,7 +18,7 @@ import java.time.LocalTime;
         indexes = {
                 @Index(name = "idx_stop_time_trip", columnList = "trip_id"),
                 @Index(name = "idx_stop_time_stop", columnList = "stop_id"),
-                @Index(name = "idx_stop_time_departure", columnList = "departure_time"),
+                @Index(name = "idx_stop_time_departure", columnList = "departure_seconds"),
                 @Index(name = "idx_stop_time_city", columnList = "city_id")
         }
 )
@@ -46,11 +44,12 @@ public class StopTimeEntity {
     @JoinColumn(name = "stop_id", nullable = false)
     private StopEntity stop;
 
-    @Column(name = "arrival_time", nullable = false)
-    private LocalTime arrivalTime;
+    // Seconds since midnight of the service day; GTFS allows values past 24:00.
+    @Column(name = "arrival_seconds", nullable = false)
+    private Integer arrivalSeconds;
 
-    @Column(name = "departure_time", nullable = false)
-    private LocalTime departureTime;
+    @Column(name = "departure_seconds", nullable = false)
+    private Integer departureSeconds;
 
     @Column(name = "stop_sequence", nullable = false)
     private Integer stopSequence;
