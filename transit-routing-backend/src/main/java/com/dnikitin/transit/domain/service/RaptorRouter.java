@@ -77,7 +77,6 @@ public class RaptorRouter {
                 }
 
                 scanRoute(
-                        dataSet,
                         route,
                         routeEntry.getValue(),
                         previousRoundArrivalByStop,
@@ -122,7 +121,6 @@ public class RaptorRouter {
     }
 
     private void scanRoute(
-            RaptorDataSet dataSet,
             RouteRaptor route,
             int startIndex,
             Map<Integer, Integer> previousRoundArrivalByStop,
@@ -158,9 +156,11 @@ public class RaptorRouter {
 
             TripRaptor currentTrip = route.trips().get(currentTripIndex);
             int arrivalTime = currentTrip.arrivalTimes()[stopIndex];
+            if (!improves(targetStopId, stopId, arrivalTime, currentRoundArrivalByStop, bestArrivalByStop)) {
+                continue;
+            }
+
             registerImprovement(
-                    dataSet,
-                    targetStopId,
                     stopId,
                     arrivalTime,
                     currentRoundArrivalByStop,
@@ -204,10 +204,11 @@ public class RaptorRouter {
             for (TransferRaptor transfer : stop.transfers()) {
                 int destinationStopId = transfer.destinationStopId();
                 int destinationArrivalTime = stopArrivalTime + transfer.durationInSeconds();
+                if (!improves(targetStopId, destinationStopId, destinationArrivalTime, currentRoundArrivalByStop, bestArrivalByStop)) {
+                    continue;
+                }
 
-                boolean improved = registerImprovement(
-                        dataSet,
-                        targetStopId,
+                registerImprovement(
                         destinationStopId,
                         destinationArrivalTime,
                         currentRoundArrivalByStop,
@@ -222,17 +223,31 @@ public class RaptorRouter {
                                 stopArrivalTime
                         )
                 );
-
-                if (improved) {
-                    queue.add(destinationStopId);
-                }
+                queue.add(destinationStopId);
             }
         }
     }
 
-    private boolean registerImprovement(
-            RaptorDataSet dataSet,
+    /**
+     * Whether arriving at the stop at the candidate time beats this round's label there and, for stops
+     * other than the target, the best known arrival at the target (target pruning). Checked before a
+     * path step is allocated, so steps are only created for improvements.
+     */
+    private boolean improves(
             int targetStopId,
+            int stopId,
+            int candidateArrivalTime,
+            Map<Integer, Integer> currentRoundArrivalByStop,
+            Map<Integer, Integer> bestArrivalByStop
+    ) {
+        if (candidateArrivalTime >= arrivalAt(currentRoundArrivalByStop, stopId)) {
+            return false;
+        }
+
+        return stopId == targetStopId || candidateArrivalTime < arrivalAt(bestArrivalByStop, targetStopId);
+    }
+
+    private void registerImprovement(
             int stopId,
             int candidateArrivalTime,
             Map<Integer, Integer> currentRoundArrivalByStop,
@@ -241,16 +256,6 @@ public class RaptorRouter {
             Set<Integer> currentMarkedStops,
             PathStep step
     ) {
-        int currentArrival = arrivalAt(currentRoundArrivalByStop, stopId);
-        if (candidateArrivalTime >= currentArrival) {
-            return false;
-        }
-
-        int bestKnownTargetArrival = arrivalAt(bestArrivalByStop, targetStopId);
-        if (stopId != targetStopId && candidateArrivalTime >= bestKnownTargetArrival) {
-            return false;
-        }
-
         currentRoundArrivalByStop.put(stopId, candidateArrivalTime);
         currentRoundStepByStop.put(stopId, step);
 
@@ -259,8 +264,6 @@ public class RaptorRouter {
             bestArrivalByStop.put(stopId, candidateArrivalTime);
             currentMarkedStops.add(stopId);
         }
-
-        return true;
     }
 
     private Map<Integer, Integer> collectRoutesToScan(RaptorDataSet dataSet, Set<Integer> markedStops) {
