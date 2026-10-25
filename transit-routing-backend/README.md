@@ -34,12 +34,11 @@ Implemented:
 - transfer generation from stop proximity using PostGIS
 - RAPTOR journey endpoint with optional `serviceDate`
 - OpenAPI/Swagger UI
-- Docker Compose for PostgreSQL/PostGIS, Redis, and optional app container
+- Docker Compose for PostgreSQL/PostGIS and optional app container
 - test profile isolated from startup GTFS seeding
 
 Not implemented yet:
 
-- Redis-backed distributed RAPTOR cache
 - fare, accessibility, and frequency-based routing
 - production deployment automation
 
@@ -145,7 +144,6 @@ After starting the app:
 Default runtime dependencies:
 
 - PostgreSQL/PostGIS on `localhost:5434`
-- Redis on `localhost:6379`
 
 Important settings:
 
@@ -165,7 +163,7 @@ raptor:
 Start infrastructure:
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres
 ```
 
 Run tests:
