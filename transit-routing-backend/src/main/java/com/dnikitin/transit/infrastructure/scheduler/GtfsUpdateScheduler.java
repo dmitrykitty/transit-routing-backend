@@ -1,10 +1,10 @@
 package com.dnikitin.transit.infrastructure.scheduler;
 
+import com.dnikitin.transit.application.port.in.BuildRaptorDataUseCase;
 import com.dnikitin.transit.infrastructure.importer.GtfsImportService;
 import com.dnikitin.transit.infrastructure.importer.GtfsProperties;
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.DataImportMetadataEntity;
-import com.dnikitin.transit.infrastructure.raptor.RaptorImportService;
 import com.dnikitin.transit.infrastructure.repository.CityJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.DataImportMetadataJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +27,8 @@ public class GtfsUpdateScheduler {
     private final DataImportMetadataJpaRepository metadataRepository;
     private final CityJpaRepository cityRepository;
     private final GtfsProperties gtfsProperties;
+    private final BuildRaptorDataUseCase buildRaptorDataUseCase;
     private final RestTemplate restTemplate = new RestTemplate();
-    private final RaptorImportService raptorImportService;
 
     @Scheduled(cron = "${gtfs.update-cron:0 0 3 * * MON}")
     public void checkAndSyncAllCities() {
@@ -67,8 +67,8 @@ public class GtfsUpdateScheduler {
             log.info("Triggering full re-import for city: {} due to source changes.", city.getName());
             importService.performFullCityUpdate(city, sources, newHeaders);
 
-            log.info("Refreshing RAPTOR cache for city: {}", city.getName());
-            raptorImportService.importDataToRedis(city);
+            log.info("Invalidating RAPTOR cache for city: {}", city.getName());
+            buildRaptorDataUseCase.invalidateCity(city.getId());
         } else {
             log.info("All sources for {} are up-to-date.", city.getName());
         }
