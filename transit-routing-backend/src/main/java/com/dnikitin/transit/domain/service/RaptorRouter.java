@@ -284,14 +284,23 @@ public class RaptorRouter {
         return routesToScan;
     }
 
+    /**
+     * Binary search for the first trip departing at or after the given time. Trips of a route never
+     * overtake each other (see {@link FifoTripPartitioner}), so departures at every stop are sorted.
+     */
     private int findEarliestCatchableTrip(List<TripRaptor> trips, int stopIndex, int earliestDepartureTime) {
-        for (int tripIndex = 0; tripIndex < trips.size(); tripIndex++) {
-            if (trips.get(tripIndex).departureTimes()[stopIndex] >= earliestDepartureTime) {
-                return tripIndex;
+        int low = 0;
+        int high = trips.size();
+        while (low < high) {
+            int middle = (low + high) >>> 1;
+            if (trips.get(middle).departureTimes()[stopIndex] < earliestDepartureTime) {
+                low = middle + 1;
+            } else {
+                high = middle;
             }
         }
 
-        return -1;
+        return low < trips.size() ? low : -1;
     }
 
     private boolean isBetterBoardingChoice(

@@ -38,6 +38,20 @@ class RaptorRouterScenarioTest {
     }
 
     @Test
+    void takesLaterTripThatOvertakesEarlierOneOnSameStops() {
+        // The 08:10 express overtakes the 08:00 local on the same stop sequence.
+        TestNetwork network = new TestNetwork().stops(1, 2, 3)
+                .route(1, new int[]{1, 2, 3},
+                        trip(11, 8 * H, 8 * H + 30 * M, 9 * H),
+                        trip(12, 8 * H + 10 * M, 8 * H + 20 * M, 8 * H + 30 * M));
+
+        List<RaptorJourney> journeys = plan(network, 1, 3, LocalTime.of(8, 0));
+
+        assertEquals(List.of(LocalTime.of(8, 30)), arrivals(journeys));
+        assertEquals(12, journeys.getFirst().legs().getFirst().tripId());
+    }
+
+    @Test
     void chainsFootpathsToReachTargetWithoutTrips() {
         TestNetwork network = new TestNetwork().stops(1, 2, 3)
                 .footpath(1, 2, 120)

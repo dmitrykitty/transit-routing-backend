@@ -86,6 +86,20 @@ class RaptorRouterReferenceTest {
         });
     }
 
+    @Test
+    void randomNetworksIncludeOvertakingTrips() {
+        int networksWithSplitRoutes = 0;
+        for (int seed = 1; seed <= NETWORKS; seed++) {
+            TestNetwork network = TestNetwork.random(new Random(seed));
+            if (network.toDataSet().routesById().size() > network.routes.size()) {
+                networksWithSplitRoutes++;
+            }
+        }
+
+        assertTrue(networksWithSplitRoutes >= NETWORKS / 20,
+                "only " + networksWithSplitRoutes + " of " + NETWORKS + " networks have overtaking trips");
+    }
+
     private void assertHolds(Function<Query, String> property) {
         int checked = 0;
         int violations = 0;

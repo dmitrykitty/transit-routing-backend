@@ -184,6 +184,33 @@ class RaptorDataBuilderServiceTest {
         verify(queryPort, times(1)).findTripsByCityId(eq((short) 1), any());
     }
 
+    @Test
+    void splitsPatternWhoseTripsOvertakeIntoSeparateRoutes() {
+        RaptorDataQueryPort queryPort = mock(RaptorDataQueryPort.class);
+        RaptorDataBuilderService service = new RaptorDataBuilderService(queryPort, properties());
+
+        // Same stops, but the 08:05 express arrives before the 08:00 local.
+        RaptorTripData local = new RaptorTripData(10, 100, 0, "Bravo", List.of(
+                new RaptorStopTimeData(1, "Alpha", 8 * 3600, 8 * 3600, 1),
+                new RaptorStopTimeData(2, "Bravo", 8 * 3600 + 1800, 8 * 3600 + 1800, 2)
+        ));
+        RaptorTripData express = new RaptorTripData(11, 100, 0, "Bravo", List.of(
+                new RaptorStopTimeData(1, "Alpha", 8 * 3600 + 300, 8 * 3600 + 300, 1),
+                new RaptorStopTimeData(2, "Bravo", 8 * 3600 + 900, 8 * 3600 + 900, 2)
+        ));
+        when(queryPort.findStopsByCityId((short) 1)).thenReturn(stops());
+        when(queryPort.findTripsByCityId((short) 1, null)).thenReturn(List.of(express, local));
+        when(queryPort.findTransfersByCityId((short) 1, 150.0, 1.4, 300)).thenReturn(List.of());
+
+        RaptorDataSet dataSet = service.buildForCity((short) 1);
+
+        assertEquals(2, dataSet.routesById().size());
+        assertEquals(List.of(List.of(10), List.of(11)), dataSet.routesById().values().stream()
+                .map(route -> route.trips().stream().map(TripRaptor::id).toList())
+                .toList());
+        assertEquals(2, dataSet.stopsById().get(1).routes().size());
+    }
+
     private RaptorRoutingProperties properties() {
         return new RaptorRoutingProperties();
     }

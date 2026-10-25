@@ -7,6 +7,7 @@ import com.dnikitin.transit.application.port.out.raptor.RaptorStopTimeData;
 import com.dnikitin.transit.application.port.out.raptor.RaptorTransferData;
 import com.dnikitin.transit.application.port.out.raptor.RaptorTripData;
 import com.dnikitin.transit.domain.model.raptor.*;
+import com.dnikitin.transit.domain.service.FifoTripPartitioner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -63,27 +64,30 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
 
             List<TripRaptor> tripRaptors = routeTrips.stream()
                     .map(this::toTripRaptor)
-                    .sorted(Comparator.comparingInt(t -> t.departureTimes()[0]))
                     .toList();
 
-            RouteRaptor routeRaptor = new RouteRaptor(
-                    nextRouteRaptorId,
-                    representativeTrip.sourceRouteId(),
-                    representativeTrip.directionId(),
-                    resolveHeadsign(representativeTrip, representativeStopTimes),
-                    stopIds,
-                    tripRaptors
-            );
+            // The router binary-searches trips, so a pattern whose trips overtake each other becomes
+            // several RAPTOR routes with the same stops.
+            for (List<TripRaptor> fifoTrips : FifoTripPartitioner.partition(tripRaptors)) {
+                RouteRaptor routeRaptor = new RouteRaptor(
+                        nextRouteRaptorId,
+                        representativeTrip.sourceRouteId(),
+                        representativeTrip.directionId(),
+                        resolveHeadsign(representativeTrip, representativeStopTimes),
+                        stopIds,
+                        fifoTrips
+                );
 
-            routesById.put(nextRouteRaptorId, routeRaptor);
+                routesById.put(nextRouteRaptorId, routeRaptor);
 
-            for (int stopIndex = 0; stopIndex < stopIds.length; stopIndex++) {
-                int stopId = stopIds[stopIndex];
-                routesAtStops.computeIfAbsent(stopId, ignored -> new ArrayList<>())
-                        .add(new RouteAtStopRaptor(nextRouteRaptorId, stopIndex));
+                for (int stopIndex = 0; stopIndex < stopIds.length; stopIndex++) {
+                    int stopId = stopIds[stopIndex];
+                    routesAtStops.computeIfAbsent(stopId, ignored -> new ArrayList<>())
+                            .add(new RouteAtStopRaptor(nextRouteRaptorId, stopIndex));
+                }
+
+                nextRouteRaptorId++;
             }
-
-            nextRouteRaptorId++;
         }
 
         Map<Integer, StopRaptor> stopsById = new LinkedHashMap<>();

@@ -7,7 +7,8 @@ import java.util.*;
 /**
  * Small transit network for router tests, kept independent of the RAPTOR data layout so the
  * brute-force reference does not share code with the router. {@link #toDataSet()} converts it the
- * same way RaptorDataBuilderService does (trips sorted by first departure, stop index per route).
+ * same way RaptorDataBuilderService does (overtaking trips split by {@link FifoTripPartitioner},
+ * stop index per route).
  */
 final class TestNetwork {
 
@@ -48,15 +49,18 @@ final class TestNetwork {
     RaptorDataSet toDataSet() {
         Map<Integer, List<RouteAtStopRaptor>> routesAtStop = new HashMap<>();
         Map<Integer, RouteRaptor> routesById = new LinkedHashMap<>();
+        int nextRaptorRouteId = 0;
         for (Route route : routes) {
             List<TripRaptor> trips = route.trips().stream()
                     .map(trip -> new TripRaptor(trip.id(), trip.arrivals(), trip.departures()))
-                    .sorted(Comparator.comparingInt(trip -> trip.departureTimes()[0]))
                     .toList();
-            routesById.put(route.id(), new RouteRaptor(route.id(), (long) route.id(), 0, "R" + route.id(), route.stopIds(), trips));
-            for (int i = 0; i < route.stopIds().length; i++) {
-                routesAtStop.computeIfAbsent(route.stopIds()[i], ignored -> new ArrayList<>())
-                        .add(new RouteAtStopRaptor(route.id(), i));
+            for (List<TripRaptor> fifoTrips : FifoTripPartitioner.partition(trips)) {
+                int raptorRouteId = nextRaptorRouteId++;
+                routesById.put(raptorRouteId, new RouteRaptor(raptorRouteId, (long) route.id(), 0, "R" + route.id(), route.stopIds(), fifoTrips));
+                for (int i = 0; i < route.stopIds().length; i++) {
+                    routesAtStop.computeIfAbsent(route.stopIds()[i], ignored -> new ArrayList<>())
+                            .add(new RouteAtStopRaptor(raptorRouteId, i));
+                }
             }
         }
 
@@ -75,8 +79,9 @@ final class TestNetwork {
     }
 
     /**
-     * Random network: every route has one travel-time profile shared by all its trips, so trips never
-     * overtake each other (as in the real feed for a single service date). All times stay before 24:00.
+     * Random network. Most routes have one travel-time profile shared by all trips (no overtaking, as in
+     * the real feed for a single service date); about a third give each trip its own speed, so trips
+     * can overtake each other. All times stay before 24:00.
      */
     static TestNetwork random(Random random) {
         TestNetwork network = new TestNetwork();
@@ -100,16 +105,18 @@ final class TestNetwork {
                 dwell[i] = random.nextInt(3) == 0 ? random.nextInt(61) : 0;
             }
 
+            boolean mixedSpeeds = random.nextInt(3) == 0;
             int tripCount = 1 + random.nextInt(4);
             int firstDeparture = 6 * 3600 + random.nextInt(4 * 3600);
             List<Trip> trips = new ArrayList<>();
             for (int t = 0; t < tripCount; t++) {
+                double speedFactor = mixedSpeeds ? 0.5 + random.nextDouble() : 1.0;
                 int[] arrivals = new int[length];
                 int[] departures = new int[length];
                 arrivals[0] = firstDeparture;
                 departures[0] = firstDeparture;
                 for (int i = 1; i < length; i++) {
-                    arrivals[i] = departures[i - 1] + travel[i];
+                    arrivals[i] = departures[i - 1] + (int) Math.round(travel[i] * speedFactor);
                     departures[i] = arrivals[i] + dwell[i];
                 }
                 trips.add(new Trip(tripId++, arrivals, departures));
