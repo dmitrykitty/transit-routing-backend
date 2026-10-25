@@ -8,10 +8,6 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: create-drop
-  data:
-    redis:
-      repositories:
-        enabled: false
 gtfs:
   initializer:
     enabled: false

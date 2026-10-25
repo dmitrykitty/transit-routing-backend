@@ -28,7 +28,7 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
                     """
                         INSERT INTO stop_time (
                                                city_id, stop_id, trip_id,
-                                               arrival_time, departure_time, drop_off_type, pickup_type,
+                                               arrival_seconds, departure_seconds, drop_off_type, pickup_type,
                                                shape_dist_traveled, stop_headsign, stop_sequence, timepoint
                                                )
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -65,8 +65,8 @@ public class StopTimeFileProcessor implements GtfsFileProcessor {
                         city.getId(),                                                   // city_id (FK)
                         stopInternalId,                                                 // stop_id (FK)
                         tripInternalId,                                                 // trip_id (FK)
-                        ParsingUtil.parseGtfsTime(row[1]),                              // arrival_time (String "HH:mm:ss")
-                        ParsingUtil.parseGtfsTime(row[2]),                              // departure_time
+                        ParsingUtil.parseGtfsSeconds(row[1]),                           // arrival_seconds ("HH:mm:ss", may exceed 24:00)
+                        ParsingUtil.parseGtfsSeconds(row[2]),                           // departure_seconds
                         ParsingUtil.parseNullableIntOrDefault(row[7], 0),    // drop_off_type
                         ParsingUtil.parseNullableIntOrDefault(row[6], 0),    // pickup_type
                         ParsingUtil.parseNullableDouble(row[8]),                        // shape_dist_traveled

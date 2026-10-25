@@ -1,74 +1,78 @@
 package com.dnikitin.transit.infrastructure.adapter;
 
+import com.dnikitin.transit.application.port.out.raptor.RaptorTripData;
 import com.dnikitin.transit.infrastructure.persistence.entity.CityEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.RouteEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarDateEntity;
 import com.dnikitin.transit.infrastructure.persistence.entity.ServiceCalendarEntity;
-import com.dnikitin.transit.infrastructure.persistence.entity.TripEntity;
 import com.dnikitin.transit.infrastructure.repository.CityJpaRepository;
+import com.dnikitin.transit.infrastructure.repository.RaptorTripJdbcRepository;
 import com.dnikitin.transit.infrastructure.repository.ServiceCalendarDateJpaRepository;
+import com.dnikitin.transit.infrastructure.repository.ServiceCalendarJpaRepository;
 import com.dnikitin.transit.infrastructure.repository.StopJpaRepository;
-import com.dnikitin.transit.infrastructure.repository.StopTimeJpaRepository;
-import com.dnikitin.transit.infrastructure.repository.TripJpaRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.*;
 
 class RaptorDataPersistenceAdapterTest {
 
+    private static final LocalDate MONDAY = LocalDate.of(2026, 4, 27);
+    private static final LocalDate TUESDAY = LocalDate.of(2026, 4, 28);
+
     @Test
-    void filtersTripsByCalendarWeekday() {
-        Fixture fixture = fixture();
-        TripEntity trip = trip(1L, calendar("weekday", true, false));
+    void loadsOnlyTripsOfCalendarsActiveOnWeekday() {
+        Fixture fixture = fixture(List.of(calendar(7L, "weekday", true, false)), List.of());
 
-        when(fixture.tripRepository.findAllByCity(fixture.city)).thenReturn(List.of(trip));
-        when(fixture.calendarDateRepository.findAllByCity(fixture.city)).thenReturn(List.of());
-        when(fixture.stopTimeRepository.findAllByCity(fixture.city)).thenReturn(List.of());
+        fixture.adapter.findTripsByCityId((short) 1, MONDAY);
+        fixture.adapter.findTripsByCityId((short) 1, TUESDAY);
 
-        assertEquals(1, fixture.adapter.findTripsByCityId((short) 1, LocalDate.of(2026, 4, 27)).size());
-        assertEquals(0, fixture.adapter.findTripsByCityId((short) 1, LocalDate.of(2026, 4, 28)).size());
+        verify(fixture.tripJdbcRepository).findTripsWithStopTimes((short) 1, List.of(7L));
+        verify(fixture.tripJdbcRepository).findTripsWithStopTimes((short) 1, List.of());
     }
 
     @Test
-    void calendarDateRemovalExcludesTrip() {
-        Fixture fixture = fixture();
-        TripEntity trip = trip(1L, calendar("weekday", true, true));
+    void calendarDateRemovalExcludesCalendar() {
+        Fixture fixture = fixture(
+                List.of(calendar(7L, "weekday", true, true)),
+                List.of(exception("weekday", MONDAY, 2))
+        );
 
-        when(fixture.tripRepository.findAllByCity(fixture.city)).thenReturn(List.of(trip));
-        when(fixture.calendarDateRepository.findAllByCity(fixture.city)).thenReturn(List.of(
-                exception("weekday", LocalDate.of(2026, 4, 27), 2)
-        ));
-        when(fixture.stopTimeRepository.findAllByCity(fixture.city)).thenReturn(List.of());
+        fixture.adapter.findTripsByCityId((short) 1, MONDAY);
 
-        assertEquals(0, fixture.adapter.findTripsByCityId((short) 1, LocalDate.of(2026, 4, 27)).size());
+        verify(fixture.tripJdbcRepository).findTripsWithStopTimes((short) 1, List.of());
     }
 
     @Test
-    void calendarDateAdditionIncludesTripOutsideWeekday() {
-        Fixture fixture = fixture();
-        TripEntity trip = trip(1L, calendar("special", false, false));
+    void calendarDateAdditionIncludesCalendarOutsideWeekday() {
+        Fixture fixture = fixture(
+                List.of(calendar(7L, "special", false, false), calendar(8L, "weekday", true, false)),
+                List.of(exception("special", TUESDAY, 1))
+        );
 
-        when(fixture.tripRepository.findAllByCity(fixture.city)).thenReturn(List.of(trip));
-        when(fixture.calendarDateRepository.findAllByCity(fixture.city)).thenReturn(List.of(
-                exception("special", LocalDate.of(2026, 4, 28), 1)
-        ));
-        when(fixture.stopTimeRepository.findAllByCity(fixture.city)).thenReturn(List.of());
+        fixture.adapter.findTripsByCityId((short) 1, TUESDAY);
 
-        assertEquals(1, fixture.adapter.findTripsByCityId((short) 1, LocalDate.of(2026, 4, 28)).size());
+        verify(fixture.tripJdbcRepository).findTripsWithStopTimes((short) 1, List.of(7L));
     }
 
-    private Fixture fixture() {
+    @Test
+    void loadsTripsOfAllCalendarsWithoutServiceDate() {
+        Fixture fixture = fixture(List.of(calendar(7L, "weekday", true, false)), List.of());
+        List<RaptorTripData> trips = List.of(new RaptorTripData(1, 100, 0, "Bravo", List.of()));
+        when(fixture.tripJdbcRepository.findTripsWithStopTimes((short) 1, null)).thenReturn(trips);
+
+        assertSame(trips, fixture.adapter.findTripsByCityId((short) 1, null));
+        verifyNoInteractions(fixture.calendarRepository);
+    }
+
+    private Fixture fixture(List<ServiceCalendarEntity> calendars, List<ServiceCalendarDateEntity> exceptions) {
         CityJpaRepository cityRepository = mock(CityJpaRepository.class);
-        StopJpaRepository stopRepository = mock(StopJpaRepository.class);
-        TripJpaRepository tripRepository = mock(TripJpaRepository.class);
-        StopTimeJpaRepository stopTimeRepository = mock(StopTimeJpaRepository.class);
+        ServiceCalendarJpaRepository calendarRepository = mock(ServiceCalendarJpaRepository.class);
         ServiceCalendarDateJpaRepository calendarDateRepository = mock(ServiceCalendarDateJpaRepository.class);
+        RaptorTripJdbcRepository tripJdbcRepository = mock(RaptorTripJdbcRepository.class);
 
         CityEntity city = CityEntity.builder()
                 .id((short) 1)
@@ -76,32 +80,25 @@ class RaptorDataPersistenceAdapterTest {
                 .build();
 
         when(cityRepository.findById((short) 1)).thenReturn(Optional.of(city));
+        when(calendarRepository.findAllByCity(city)).thenReturn(calendars);
+        when(calendarDateRepository.findAllByCity(city)).thenReturn(exceptions);
 
         return new Fixture(
-                city,
-                tripRepository,
-                stopTimeRepository,
-                calendarDateRepository,
+                calendarRepository,
+                tripJdbcRepository,
                 new RaptorDataPersistenceAdapter(
                         cityRepository,
-                        stopRepository,
-                        tripRepository,
-                        stopTimeRepository,
-                        calendarDateRepository
+                        mock(StopJpaRepository.class),
+                        calendarRepository,
+                        calendarDateRepository,
+                        tripJdbcRepository
                 )
         );
     }
 
-    private TripEntity trip(Long id, ServiceCalendarEntity calendar) {
-        return TripEntity.builder()
-                .id(id)
-                .route(RouteEntity.builder().id(100L).build())
-                .calendar(calendar)
-                .build();
-    }
-
-    private ServiceCalendarEntity calendar(String serviceId, boolean monday, boolean tuesday) {
+    private ServiceCalendarEntity calendar(Long id, String serviceId, boolean monday, boolean tuesday) {
         return ServiceCalendarEntity.builder()
+                .id(id)
                 .serviceIdExternal(serviceId)
                 .monday(monday)
                 .tuesday(tuesday)
@@ -119,10 +116,8 @@ class RaptorDataPersistenceAdapterTest {
     }
 
     private record Fixture(
-            CityEntity city,
-            TripJpaRepository tripRepository,
-            StopTimeJpaRepository stopTimeRepository,
-            ServiceCalendarDateJpaRepository calendarDateRepository,
+            ServiceCalendarJpaRepository calendarRepository,
+            RaptorTripJdbcRepository tripJdbcRepository,
             RaptorDataPersistenceAdapter adapter
     ) {
     }

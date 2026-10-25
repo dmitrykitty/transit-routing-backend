@@ -4,6 +4,7 @@ import com.dnikitin.transit.infrastructure.repository.CityJpaRepository;
 import com.dnikitin.transit.infrastructure.scheduler.GtfsUpdateScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 @Order(value = 1)
+@ConditionalOnProperty(value = "gtfs.initializer.enabled", havingValue = "true", matchIfMissing = true)
 public class GtfsDataInitializer {
 
     private final CityJpaRepository cityRepository;

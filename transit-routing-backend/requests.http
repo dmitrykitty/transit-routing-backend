@@ -5,13 +5,22 @@ GET http://localhost:8080/api/v1/health
 GET http://localhost:8080/api/v1/cities
 
 ###
-GET http://localhost:8080/api/stops
+GET http://localhost:8080/api/v1/stops
 
 ###
-GET http://localhost:8080/api/routes/1
+GET http://localhost:8080/api/v1/routes/1
 
 ###
-GET http://localhost:8080/api/routes/1?type=BUS
+GET http://localhost:8080/api/v1/routes/1?type=BUS
 
 ###
-GET http://localhost:8080/api/routes/1/139?type=BUS
+GET http://localhost:8080/api/v1/routes/1/139?type=BUS
+
+###
+GET http://localhost:8080/api/v1/raptor/cities/1/dataset?routeLimit=10&stopLimit=10
+
+###
+GET http://localhost:8080/api/v1/raptor/cities/1/journeys?sourceStopId=101&targetStopId=233&departureTime=08:15
+
+###
+GET http://localhost:8080/api/v1/raptor/cities/1/journeys?sourceStopId=101&targetStopId=233&departureTime=08:15&serviceDate=2026-04-28
