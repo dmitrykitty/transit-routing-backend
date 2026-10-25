@@ -7,15 +7,19 @@ import com.dnikitin.transit.application.port.out.raptor.RaptorTransferData;
 import com.dnikitin.transit.application.port.out.raptor.RaptorTripData;
 import com.dnikitin.transit.domain.model.raptor.RaptorDataSet;
 import com.dnikitin.transit.domain.model.raptor.RouteRaptor;
+import com.dnikitin.transit.domain.model.raptor.RaptorJourney;
 import com.dnikitin.transit.domain.model.raptor.TripRaptor;
+import com.dnikitin.transit.domain.service.RaptorRouter;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 class RaptorDataBuilderServiceTest {
@@ -99,6 +103,87 @@ class RaptorDataBuilderServiceTest {
         assertArrayEquals(new int[]{86_700, 87_900}, trips.get(1).departureTimes());
     }
 
+    @Test
+    void addsPreviousServiceDayTripsRunningPastMidnightShiftedByOneDay() {
+        RaptorDataQueryPort queryPort = mock(RaptorDataQueryPort.class);
+        RaptorDataBuilderService service = new RaptorDataBuilderService(queryPort, properties());
+        LocalDate wednesday = LocalDate.of(2026, 4, 29);
+
+        // Tuesday's 24:30 -> 24:40 is Wednesday 00:30 -> 00:40; Tuesday's 08:00 trip ends before midnight.
+        RaptorTripData tuesdayNightTrip = new RaptorTripData(20, 100, 0, "Bravo", List.of(
+                new RaptorStopTimeData(1, "Alpha", 88_200, 88_200, 1),
+                new RaptorStopTimeData(2, "Bravo", 88_800, 88_800, 2)
+        ));
+        when(queryPort.findStopsByCityId((short) 1)).thenReturn(stops());
+        when(queryPort.findTripsByCityId((short) 1, wednesday)).thenReturn(List.of(trip()));
+        when(queryPort.findTripsByCityId((short) 1, wednesday.minusDays(1)))
+                .thenReturn(List.of(trip(), tuesdayNightTrip));
+        when(queryPort.findTransfersByCityId((short) 1, 150.0, 1.4, 300)).thenReturn(List.of());
+
+        RaptorDataSet dataSet = service.buildForCity((short) 1, wednesday);
+
+        // Same stops, route, direction and headsign: one pattern, ordered by first departure.
+        assertEquals(1, dataSet.routesById().size());
+        List<TripRaptor> trips = dataSet.routesById().values().iterator().next().trips();
+        assertEquals(List.of(20, 10), trips.stream().map(TripRaptor::id).toList());
+        assertArrayEquals(new int[]{1_800, 2_400}, trips.get(0).departureTimes());
+
+        List<RaptorJourney> journeys = new RaptorRouter().findJourneys(dataSet, 1, 2, LocalTime.of(0, 20));
+        assertEquals(LocalTime.of(0, 40), journeys.getLast().arrivalTime());
+        assertEquals(20, journeys.getLast().legs().getFirst().tripId());
+    }
+
+    @Test
+    void keepsPreviousDayTripCrossingMidnightFromItsFirstStopAfterMidnight() {
+        RaptorDataQueryPort queryPort = mock(RaptorDataQueryPort.class);
+        RaptorDataBuilderService service = new RaptorDataBuilderService(queryPort, properties());
+        LocalDate wednesday = LocalDate.of(2026, 4, 29);
+
+        // Tuesday 23:50 Alpha -> 24:05 Bravo -> 24:15 Charlie: only Bravo -> Charlie runs on Wednesday.
+        RaptorTripData crossingTrip = new RaptorTripData(30, 100, 0, "Charlie", List.of(
+                new RaptorStopTimeData(1, "Alpha", 85_800, 85_800, 1),
+                new RaptorStopTimeData(2, "Bravo", 86_700, 86_760, 2),
+                new RaptorStopTimeData(3, "Charlie", 87_300, 87_300, 3)
+        ));
+        // Tuesday 23:40 -> 24:01: no departure after midnight, nothing left to ride on Wednesday.
+        RaptorTripData arrivingTrip = new RaptorTripData(31, 100, 0, "Bravo", List.of(
+                new RaptorStopTimeData(1, "Alpha", 85_200, 85_200, 1),
+                new RaptorStopTimeData(2, "Bravo", 86_460, 86_460, 2)
+        ));
+        when(queryPort.findStopsByCityId((short) 1)).thenReturn(threeStops());
+        when(queryPort.findTripsByCityId((short) 1, wednesday)).thenReturn(List.of());
+        when(queryPort.findTripsByCityId((short) 1, wednesday.minusDays(1)))
+                .thenReturn(List.of(crossingTrip, arrivingTrip));
+        when(queryPort.findTransfersByCityId((short) 1, 150.0, 1.4, 300)).thenReturn(List.of());
+
+        RaptorDataSet dataSet = service.buildForCity((short) 1, wednesday);
+
+        assertEquals(1, dataSet.routesById().size());
+        RouteRaptor route = dataSet.routesById().values().iterator().next();
+        assertArrayEquals(new int[]{2, 3}, route.stopIds());
+        assertEquals(List.of(30), route.trips().stream().map(TripRaptor::id).toList());
+        assertArrayEquals(new int[]{300, 900}, route.trips().getFirst().arrivalTimes());
+        assertArrayEquals(new int[]{360, 900}, route.trips().getFirst().departureTimes());
+        assertTrue(dataSet.stopsById().get(1).routes().isEmpty());
+
+        List<RaptorJourney> journeys = new RaptorRouter().findJourneys(dataSet, 2, 3, LocalTime.of(0, 0));
+        assertEquals(LocalTime.of(0, 15), journeys.getLast().arrivalTime());
+    }
+
+    @Test
+    void doesNotAddPreviousDayTripsWithoutServiceDate() {
+        RaptorDataQueryPort queryPort = mock(RaptorDataQueryPort.class);
+        RaptorDataBuilderService service = new RaptorDataBuilderService(queryPort, properties());
+
+        when(queryPort.findStopsByCityId((short) 1)).thenReturn(stops());
+        when(queryPort.findTripsByCityId((short) 1, null)).thenReturn(List.of(trip()));
+        when(queryPort.findTransfersByCityId((short) 1, 150.0, 1.4, 300)).thenReturn(List.of());
+
+        service.buildForCity((short) 1);
+
+        verify(queryPort, times(1)).findTripsByCityId(eq((short) 1), any());
+    }
+
     private RaptorRoutingProperties properties() {
         return new RaptorRoutingProperties();
     }
@@ -107,6 +192,14 @@ class RaptorDataBuilderServiceTest {
         return List.of(
                 new RaptorStopData(1, "Alpha", 50.0, 19.0),
                 new RaptorStopData(2, "Bravo", 50.1, 19.1)
+        );
+    }
+
+    private List<RaptorStopData> threeStops() {
+        return List.of(
+                new RaptorStopData(1, "Alpha", 50.0, 19.0),
+                new RaptorStopData(2, "Bravo", 50.1, 19.1),
+                new RaptorStopData(3, "Charlie", 50.2, 19.2)
         );
     }
 

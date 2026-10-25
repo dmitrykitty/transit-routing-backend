@@ -18,6 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
 
+    private static final int SECONDS_PER_DAY = 24 * 60 * 60;
+
     private final RaptorDataQueryPort raptorDataQueryPort;
     private final RaptorRoutingProperties raptorRoutingProperties;
     private final Map<CacheKey, RaptorDataSet> cache = new ConcurrentHashMap<>();
@@ -39,7 +41,7 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
 
     private RaptorDataSet buildUncached(Short cityId, LocalDate serviceDate) {
         List<RaptorStopData> stops = raptorDataQueryPort.findStopsByCityId(cityId);
-        List<RaptorTripData> trips = raptorDataQueryPort.findTripsByCityId(cityId, serviceDate);
+        List<RaptorTripData> trips = loadTrips(cityId, serviceDate);
         List<RaptorTransferData> transfers = loadTransfers(cityId);
 
         Map<PatternKey, List<RaptorTripData>> tripsByPattern = groupTripsByPattern(trips);
@@ -104,6 +106,60 @@ public class RaptorDataBuilderService implements BuildRaptorDataUseCase {
                 stopsById,
                 routesById,
                 new ArrayList<>(routesById.keySet())
+        );
+    }
+
+    /**
+     * Trips of the service date plus the previous service day's trips that are still running after
+     * midnight, shifted by -24h onto this date's time axis (GTFS times past 24:00 belong to the day
+     * the trip started). A shifted trip keeps only the stops from its first departure at or after
+     * 00:00: a query on this date cannot board earlier, so the stops before midnight are dropped.
+     */
+    private List<RaptorTripData> loadTrips(Short cityId, LocalDate serviceDate) {
+        List<RaptorTripData> trips = raptorDataQueryPort.findTripsByCityId(cityId, serviceDate);
+        if (serviceDate == null) {
+            return trips;
+        }
+
+        List<RaptorTripData> result = new ArrayList<>(trips);
+        for (RaptorTripData previousDayTrip : raptorDataQueryPort.findTripsByCityId(cityId, serviceDate.minusDays(1))) {
+            RaptorTripData shifted = shiftToNextServiceDay(previousDayTrip);
+            if (shifted != null) {
+                result.add(shifted);
+            }
+        }
+
+        return result;
+    }
+
+    private RaptorTripData shiftToNextServiceDay(RaptorTripData trip) {
+        List<RaptorStopTimeData> stopTimes = trip.stopTimes();
+        if (stopTimes == null) {
+            return null;
+        }
+
+        List<RaptorStopTimeData> shiftedStopTimes = stopTimes.stream()
+                .dropWhile(st -> st.departureSeconds() < SECONDS_PER_DAY)
+                .map(st -> new RaptorStopTimeData(
+                        st.stopId(),
+                        st.stopName(),
+                        Math.max(0, st.arrivalSeconds() - SECONDS_PER_DAY),
+                        st.departureSeconds() - SECONDS_PER_DAY,
+                        st.stopSequence()
+                ))
+                .toList();
+
+        // A single remaining stop cannot be ridden to anywhere.
+        if (shiftedStopTimes.size() < 2) {
+            return null;
+        }
+
+        return new RaptorTripData(
+                trip.id(),
+                trip.sourceRouteId(),
+                trip.directionId(),
+                trip.headsign(),
+                shiftedStopTimes
         );
     }
 
