@@ -45,6 +45,21 @@ public class RaptorRouter {
         markedStops.add(sourceStopId);
 
         List<RaptorJourney> journeys = new ArrayList<>();
+
+        // Round 0: footpaths from the source, so round k holds journeys with exactly k trips.
+        propagateTransfers(
+                dataSet,
+                markedStops,
+                previousRoundArrivalByStop,
+                previousRoundStepByStop,
+                bestArrivalByStop,
+                targetStopId
+        );
+        PathStep walkOnlyStep = previousRoundStepByStop.get(targetStopId);
+        if (walkOnlyStep != null) {
+            journeys.add(toJourney(dataSet, sourceStopId, targetStopId, departureTime, walkOnlyStep));
+        }
+
         int maxRounds = Math.max(1, dataSet.stopsById().size());
 
         for (int round = 1; round <= maxRounds && !markedStops.isEmpty(); round++) {
@@ -77,7 +92,6 @@ public class RaptorRouter {
 
             propagateTransfers(
                     dataSet,
-                    markedStops,
                     currentMarkedStops,
                     currentRoundArrivalByStop,
                     currentRoundStepByStop,
@@ -169,17 +183,13 @@ public class RaptorRouter {
 
     private void propagateTransfers(
             RaptorDataSet dataSet,
-            Set<Integer> previouslyMarkedStops,
             Set<Integer> currentMarkedStops,
             Map<Integer, Integer> currentRoundArrivalByStop,
             Map<Integer, PathStep> currentRoundStepByStop,
             Map<Integer, Integer> bestArrivalByStop,
             int targetStopId
     ) {
-        Queue<Integer> queue = new ArrayDeque<>();
-
-        enqueueAll(previouslyMarkedStops, queue);
-        enqueueAll(currentMarkedStops, queue);
+        Queue<Integer> queue = new ArrayDeque<>(currentMarkedStops);
 
         while (!queue.isEmpty()) {
             int stopId = queue.poll();
@@ -357,12 +367,6 @@ public class RaptorRouter {
                 Math.max(0, tripCount - 1),
                 List.copyOf(legs)
         );
-    }
-
-    private void enqueueAll(Set<Integer> stops, Queue<Integer> queue) {
-        for (int stopId : stops) {
-            queue.add(stopId);
-        }
     }
 
     private String stopName(RaptorDataSet dataSet, int stopId) {

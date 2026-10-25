@@ -2,7 +2,6 @@ package com.dnikitin.transit.domain.service;
 
 import com.dnikitin.transit.domain.model.raptor.JourneyLegType;
 import com.dnikitin.transit.domain.model.raptor.RaptorJourney;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalTime;
@@ -66,7 +65,6 @@ class RaptorRouterScenarioTest {
     }
 
     @Test
-    @Disabled("Known bug: RaptorRouter relaxes footpaths from the source in round 1 together with the first ride, so walk-then-ride journeys are found one round late (a dominated journey with the same trip count is also returned) and the walk-only option is lost when a ride reaches the target earlier")
     void walkThenRideIsNotReportedNextToADominatedRideOnlyJourney() {
         // Direct trip from 1 arrives 09:00; walking one minute to 2 and riding route 2 arrives 08:30.
         // Both use one trip, so only the 08:30 journey is Pareto-optimal.

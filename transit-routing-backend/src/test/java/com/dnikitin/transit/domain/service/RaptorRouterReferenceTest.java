@@ -2,7 +2,6 @@ package com.dnikitin.transit.domain.service;
 
 import com.dnikitin.transit.domain.model.raptor.RaptorDataSet;
 import com.dnikitin.transit.domain.model.raptor.RaptorJourney;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalTime;
@@ -50,7 +49,6 @@ class RaptorRouterReferenceTest {
     }
 
     @Test
-    @Disabled("Known bug: RaptorRouter relaxes footpaths from the source in round 1 together with the first ride, so walk-then-ride journeys are found one round late (a dominated journey with the same trip count is also returned) and the walk-only option is lost when a ride reaches the target earlier")
     void bestArrivalForEachTripLimitIsFound() {
         assertHolds(query -> {
             long[] reference = query.reference();
@@ -73,7 +71,6 @@ class RaptorRouterReferenceTest {
     }
 
     @Test
-    @Disabled("Known bug: RaptorRouter relaxes footpaths from the source in round 1 together with the first ride, so walk-then-ride journeys are found one round late (a dominated journey with the same trip count is also returned) and the walk-only option is lost when a ride reaches the target earlier")
     void noReturnedJourneyIsDominated() {
         assertHolds(query -> {
             List<RaptorJourney> journeys = query.journeys();
